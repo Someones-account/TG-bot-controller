@@ -1,11 +1,15 @@
 from collections import defaultdict
+from datetime import datetime, timedelta
 from telegram import Update, ChatPermissions
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
+
+from src.Bot.Moderation import Moderation
 
 
 class InputHandlers:
     def __init__(self):
         self.user_timestamps = defaultdict(list)
+        self.moderator = Moderation()
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = update.effective_user
@@ -18,9 +22,22 @@ class InputHandlers:
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         received_text = update.message.text
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        now = datetime.utcnow()
+
+        one_minute_ago = now - timedelta(seconds=60)
+        self.user_timestamps[user_id] = [t for t in self.user_timestamps[user_id] if t > one_minute_ago]
+        self.user_timestamps[user_id].append(now)
+
+        if len(self.user_timestamps[user_id]) > 10:
+            await self.moderator.timeout_user(update, user_id, chat_id, context)
+            self.user_timestamps[user_id].clear()
+
         if "hello" in received_text.lower():
             reply_text = "Well, hello there!"
-        else:
-            reply_text = f"You said: {received_text}"
 
-        await update.message.reply_text(reply_text)
+        try:
+            await update.message.reply_text(reply_text)
+        except Exception as e:
+            print(f"Message handler failed: {e}")
