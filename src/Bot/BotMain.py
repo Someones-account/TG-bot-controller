@@ -16,6 +16,7 @@ def main():
     application = Application.builder().token(token).build()
     application.add_handler(CommandHandler("start", handler.start_command))
     application.add_handler(CommandHandler("help", handler.help_command))
+    application.add_handler(CommandHandler("display", handler.console_records))
 
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handler.handle_message))
     print("Bot is starting up... Press Ctrl+C to stop.")
