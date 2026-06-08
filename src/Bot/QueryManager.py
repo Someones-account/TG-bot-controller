@@ -5,7 +5,7 @@ class QueryManager:
 
     def add_user(self, user_id, action):
         try:
-            self.cursor.execute(f"INSERT INTO ModerationActions (user_id, action) VALUES ({user_id}, {action});")
+                self.cursor.execute(f"INSERT INTO ModerationActions (user_id, action) VALUES ({user_id}, {action});")
         except:
             print("Query failed!")
 
@@ -24,3 +24,4 @@ class QueryManager:
             for record in records:
                 readable_date = record["timestamp"].strftime("%Y-%m-%d %H:%M:%S")
                 print(f"{record['id']} || {record['action']} || {readable_date}")
+
