@@ -6,7 +6,7 @@ MODEL = 'granite4.1:3b'
 #for model in models['models']:
 #    print(model['model'])
 
-def ai_call(s):
+def ask_llm(s):
     response = generate(
         model=MODEL,
         prompt=s,
