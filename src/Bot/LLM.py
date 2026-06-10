@@ -14,7 +14,7 @@ def ask_llm(s):
     )
     return response.response
 
-class AI_Chat:
+class ChatSession:
     def __init__(self, model=MODEL):
         self.messages = []
         self.model = model
@@ -33,7 +33,7 @@ class AI_Chat:
 
 """
 #EXAMPLE of a chat with memory
-chat_list = [AI_Chat(), AI_Chat()]
+chat_list = [ChatSession(), ChatSession()]
 while True:
     for i, ch in enumerate(chat_list):
         print(f"{i}>", end='')
