@@ -21,7 +21,11 @@ class InputHandlers:
         )
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("Available commands:\n/start - Start the bot\n/help - Show this menu")
+        cmd_list = ["/start - Start the bot",
+                    "/help - Show this menu",
+                    "/ban - Ban user (you should reply to user's message)",
+                    ]
+        await update.message.reply_text("Available commands:\n"+"\n".join(cmd_list))
 
     async def ban_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat = update.effective_chat
