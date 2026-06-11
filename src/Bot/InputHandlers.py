@@ -35,6 +35,7 @@ class InputHandlers:
             return
 
         target_user = update.message.reply_to_message.from_user
+        self.query_manager.log_user(target_user)
         chat_member = await context.bot.get_chat_member(chat_id=chat.id, user_id=issuer_id)
         if chat_member.status not in ["administrator", "creator"]:
             await update.message.reply_text("You do not have permission to use this command.")
@@ -50,11 +51,6 @@ class InputHandlers:
         await update.message.reply_text(reply)
 
 
-
-    # async def console_records(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     self.query_manager.display_records()
-    #     await update.message.reply_text("Records are displayed in a console!")
-
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         received_text = update.message.text
         user_id = update.effective_user.id
@@ -67,6 +63,7 @@ class InputHandlers:
 
         if len(self.user_timestamps[user_id]) > 10:
             await self.moderator.timeout_user(update, user_id, chat_id, context)
+            self.query_manager.log_user(update.effective_user)
             self.user_timestamps[user_id].clear()
 
         if "hello" in received_text.lower():
