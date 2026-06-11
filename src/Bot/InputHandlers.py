@@ -3,13 +3,16 @@ from datetime import datetime, timedelta
 from telegram import Update, ChatPermissions
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
+from src.Bot.Connector import open_connection
 from src.Bot.Moderation import Moderation
+from src.Bot.QueryManager import QueryManager
 
 
 class InputHandlers:
     def __init__(self):
         self.user_timestamps = defaultdict(list)
         self.moderator = Moderation()
+        self.query_manager = QueryManager(open_connection())
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = update.effective_user
@@ -19,6 +22,10 @@ class InputHandlers:
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Available commands:\n/start - Start the bot\n/help - Show this menu")
+
+    async def console_records(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        self.query_manager.display_records()
+        await update.message.reply_text("Records are displayed in a console!")
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         received_text = update.message.text
@@ -36,8 +43,7 @@ class InputHandlers:
 
         if "hello" in received_text.lower():
             reply_text = "Well, hello there!"
-
-        try:
-            await update.message.reply_text(reply_text)
-        except Exception as e:
-            print(f"Message handler failed: {e}")
+            try:
+                await update.message.reply_text(reply_text)
+            except Exception as e:
+                print(f"Message handler failed: {e}")
