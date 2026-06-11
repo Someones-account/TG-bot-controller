@@ -11,8 +11,8 @@ from src.Bot.QueryManager import QueryManager
 class InputHandlers:
     def __init__(self):
         self.user_timestamps = defaultdict(list)
-        self.moderator = Moderation()
         self.query_manager = QueryManager(open_connection())
+        self.moderator = Moderation(self.query_manager)
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = update.effective_user
@@ -22,6 +22,26 @@ class InputHandlers:
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Available commands:\n/start - Start the bot\n/help - Show this menu")
+
+    async def ban_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat = update.effective_chat
+        issuer_id = update.effective_user.id
+        if chat.type not in ["group", "supergroup"]:
+            await update.message.reply_text("This command can only be used in group chats.")
+            return
+
+        if not update.message.reply_to_message:
+            await update.message.reply_text("Please specify target via reply or username to ban them.")
+            return
+
+        target_user = update.message.reply_to_message.from_user
+        chat_member = await context.bot.get_chat_member(chat_id=chat.id, user_id=issuer_id)
+        if chat_member.status not in ["administrator", "creator"]:
+            await update.message.reply_text("You do not have permission to use this command.")
+            return
+        await self.moderator.ban_user(update, target_user, chat.id, context)
+
+
 
     async def console_records(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         self.query_manager.display_records()

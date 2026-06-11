@@ -3,9 +3,12 @@ class QueryManager:
         self.cursor = cursor
 
 
-    def add_user(self, user_id, action):
+    def create_entry(self, user_id, action, lift_time):
         try:
-            self.cursor.execute(f"INSERT INTO ModerationActions (user_id, action) VALUES ({user_id}, {action});")
+            query = "INSERT INTO ModerationActions (user_id, action, lift_time) VALUES (%s, %s, %s);"
+            self.cursor.execute(query, (user_id, action, lift_time))
+            self.cursor.connection.commit()
+
         except:
             print("Query failed!")
 
@@ -23,4 +26,9 @@ class QueryManager:
         if records:
             for record in records:
                 readable_date = record["timestamp"].strftime("%Y-%m-%d %H:%M:%S")
-                print(f"{record['id']} || {record['action']} || {readable_date}")
+                if record["lift_time"]:
+                    readable_lift_date = record["lift_time"].strftime("%Y-%m-%d %H:%M:%S")
+                else:
+                    readable_lift_date = "empty"
+                print(f"{record['id']} || {record['action']} || {readable_date} || {readable_lift_date}")
+
