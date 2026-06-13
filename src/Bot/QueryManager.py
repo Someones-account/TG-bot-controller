@@ -78,7 +78,7 @@ class QueryManager:
                 """
 
         self.cursor.execute(update_query, (datetime.now(), user_id, action, datetime.now()))
-        self.connection.commit()
+        self.cursor.connection.commit()
 
     def is_user_banned(self, user_id, chat_id):
         self.__ensure_connection()

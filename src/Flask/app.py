@@ -1,3 +1,4 @@
+import requests
 from flask import Flask, render_template, redirect, url_for
 import os
 import sys
@@ -17,7 +18,7 @@ sys.path.append(str(src_dir))
 # ------------------------
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+from env import keys
 from Bot.Connector import open_connection
 from Bot.QueryManager import QueryManager
 app = Flask(__name__)
@@ -37,14 +38,27 @@ def dashboard():
     return render_template('dashboard.html', logs=logs)
 
 
-@app.route('/unban/<int:log_id>', methods=['POST'])
-def unban_user(log_id):
-    # Open DB and delete the record
+@app.route('/unban/<chat_id>/<int:user_id>', methods=['POST'])
+def unban_user(chat_id, user_id):
     cursor = open_connection()
     qm = QueryManager(cursor)
-    qm.delete_entry(log_id)
 
-    # Refresh the page automatically so the user disappears from the table
+    # 1. Tell Telegram Servers to physically unban the user
+    telegram_url = f"https://api.telegram.org/bot{keys.API_TOKEN}/unbanChatMember"
+    response = requests.get(telegram_url, params={
+        "chat_id": chat_id,
+        "user_id": user_id,
+        "only_if_banned": True
+    })
+
+    # 2. If Telegram successfully unbanned them (HTTP 200), update our database
+    if response.status_code == 200:
+        # We use your team lead's new Soft-Delete function!
+        qm.revoke_action(user_id, "Ban")
+    else:
+        print(f"Failed to unban on Telegram: {response.text}")
+
+    # 3. Refresh the page
     return redirect(url_for('dashboard'))
 
 
