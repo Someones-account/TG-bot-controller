@@ -7,12 +7,13 @@ from src.Bot.Connector import open_connection
 from src.Bot.Moderation import Moderation
 from src.Bot.QueryManager import QueryManager
 
-
+from src.Bot.LLM import ask_llm, ChatSession
 class InputHandlers:
     def __init__(self):
         self.user_timestamps = defaultdict(list)
         self.query_manager = QueryManager(open_connection())
         self.moderator = Moderation(self.query_manager)
+        self.chat_sessions = {}
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = update.effective_user
@@ -21,7 +22,13 @@ class InputHandlers:
         )
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("Available commands:\n/start - Start the bot\n/help - Show this menu")
+        cmd_list = ["/start - Start the bot",
+                    "/help - Show this menu",
+                    "/ban - Ban user (you should reply to user's message)",
+                    "/ai - Prompt LLM",
+                    "/chat - Start/Continue LLM Chat session",
+                    ]
+        await update.message.reply_text("Available commands:\n"+"\n".join(cmd_list))
 
     async def ban_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat = update.effective_chat
@@ -46,6 +53,27 @@ class InputHandlers:
     async def console_records(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         self.query_manager.display_records()
         await update.message.reply_text("Records are displayed in a console!")
+
+    async def prompt_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        received_text = " ".join(context.args)
+        if received_text:
+            instructions="""Be really concise. Answer as professional scientist. Do not use LaTeX syntax. Do not use LaTeX syntax. Do not use LaTeX syntax.\n"""
+            await update.message.reply_text("\U0001f916:"+ask_llm(instructions+received_text))
+        else:
+            await update.message.reply_text("Please provide prompt")
+
+    async def chat_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        received_text = " ".join(context.args)
+        if received_text:
+            instructions="""Be really concise. Answer as professional scientist. Do not use LaTeX syntax. Do not use LaTeX syntax. Do not use LaTeX syntax.\n"""
+            user_id = update.effective_user.id
+            if user_id in self.chat_sessions:
+                await update.message.reply_text("\U0001f916:"+self.chat_sessions[user_id].ask(received_text))
+            else:
+                self.chat_sessions[user_id] = ChatSession()
+                await update.message.reply_text("\U0001f916:"+self.chat_sessions[user_id].ask(instructions+received_text))
+        else:
+            await update.message.reply_text("Please provide prompt")
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         received_text = update.message.text
