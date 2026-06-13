@@ -132,7 +132,8 @@ def launch_local_llm():
     models = [DEFAULT_MODEL]
     try:
         models = llm.MODELS
-
+    except:
+        print(f"No custom model list found: Using default model - {DEFAULT_MODEL}")
     READY_MODEL = init_ollama_model(models)
 
     if READY_MODEL:
