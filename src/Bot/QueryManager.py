@@ -27,6 +27,7 @@ class QueryManager:
 
     def get_all_records(self):
         try:
+            self.cursor.connection.commit()
             self.cursor.execute(f"SELECT * FROM ModerationActions;")
             return self.cursor.fetchall()
         except:
@@ -58,3 +59,12 @@ class QueryManager:
         """
         self.cursor.execute(upsert_query, (user.id, username, first_name, username, first_name))
         self.cursor.connection.commit()
+
+    def delete_entry(self, log_id):
+        try:
+            # SQL command to delete a specific row based on its ID
+            query = "DELETE FROM ModerationActions WHERE id = %s;"
+            self.cursor.execute(query, (log_id,))
+            self.cursor.connection.commit()
+        except Exception as e:
+            print(f"Delete failed: {e}")
