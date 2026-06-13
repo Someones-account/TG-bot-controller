@@ -1,3 +1,6 @@
+from datetime import datetime
+
+
 class QueryManager:
     def __init__(self, cursor):
         self.cursor = cursor
@@ -13,6 +16,15 @@ class QueryManager:
             print("Query failed!")
 
 
+    def get_banned_users(self):
+        try:
+            query = "SELECT * FROM ModerationActions WHERE action = 'Ban' AND lift_time > %s;"
+            self.cursor.execute(query, (datetime.now(),))
+            return self.cursor.fetchall()
+        except:
+            print("Query failed!")
+
+
     def get_all_records(self):
         try:
             self.cursor.execute(f"SELECT * FROM ModerationActions;")
@@ -21,8 +33,8 @@ class QueryManager:
             print("Query failed!")
 
 
-    def display_records(self):
-        records = self.get_all_records()
+    def format_records(self, records):
+        result = ""
         if records:
             for record in records:
                 readable_date = record["timestamp"].strftime("%Y-%m-%d %H:%M:%S")
@@ -30,5 +42,7 @@ class QueryManager:
                     readable_lift_date = record["lift_time"].strftime("%Y-%m-%d %H:%M:%S")
                 else:
                     readable_lift_date = "empty"
-                print(f"{record['id']} || {record['action']} || {readable_date} || {readable_lift_date}")
+                result += f"{record['id']} || {record['action']} || {readable_date} || {readable_lift_date} \n"
+
+        return result
 

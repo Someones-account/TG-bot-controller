@@ -38,7 +38,7 @@ class InputHandlers:
             return
 
         if not update.message.reply_to_message:
-            await update.message.reply_text("Please specify target via reply or username to ban them.")
+            await update.message.reply_text("Please specify target via reply to it's message.")
             return
 
         target_user = update.message.reply_to_message.from_user
@@ -49,10 +49,18 @@ class InputHandlers:
         await self.moderator.ban_user(update, target_user, chat.id, context)
 
 
+    async def show_banned_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        records = self.query_manager.get_banned_users()
+        reply = self.query_manager.format_records(records)
+        if not reply:
+            await update.message.reply_text("No banned users found.")
+        await update.message.reply_text(reply)
 
-    async def console_records(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        self.query_manager.display_records()
-        await update.message.reply_text("Records are displayed in a console!")
+
+
+    # async def console_records(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    #     self.query_manager.display_records()
+    #     await update.message.reply_text("Records are displayed in a console!")
 
     async def prompt_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         received_text = " ".join(context.args)
