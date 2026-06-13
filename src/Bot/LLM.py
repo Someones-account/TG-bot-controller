@@ -9,7 +9,7 @@ import sys
 import logging
 
 OLLAMA_API_URL = "http://localhost:11434"
-
+DEFAULT_MODEL = "granite4.1:3b"
 #models = ollama.list()
 #for model in models['models']:
 #    print(model['model'])
@@ -129,15 +129,18 @@ def init_ollama_model(preferred_models):
     return selected_model
 
 def launch_local_llm():
-    models = llm.MODELS
+    models = [DEFAULT_MODEL]
+    try:
+        models = llm.MODELS
+
     READY_MODEL = init_ollama_model(models)
 
     if READY_MODEL:
         print(f"SUCCESS: The model '{READY_MODEL}' has been passed to the main application.")
     else:
         print("CRITICAL: Pipeline failed. Could not initialize Ollama or prepare a model.")
-launch_local_llm()
 
+launch_local_llm()
 
 def run_model(model_name):
     process = subprocess.Popen(
