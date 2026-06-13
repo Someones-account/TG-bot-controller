@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
 from telegram import Update, ChatPermissions
+from telegram.error import Forbidden, TelegramError
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
 from src.Bot.Connector import open_connection
@@ -77,6 +78,63 @@ class InputHandlers:
                 await update.message.reply_text("\U0001f916:"+self.chat_sessions[user_id].ask(instructions+received_text))
         else:
             await update.message.reply_text("Please provide prompt")
+
+    async def subscribe_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        if update.effective_chat.type == "private":
+            await update.message.reply_text(
+                "This command must be used inside the group chat you want to subscribe to.")
+            return
+
+        success = self.query_manager.subscribe_user(user_id, chat_id)
+        if success:
+            await update.message.reply_text(
+                f"Done! {update.effective_user.first_name}, you've subscribed to notifications from this chat. To ensure your subscription message '/start' to this bot!")
+        else:
+            await update.message.reply_text("An error occurred while processing your subscription.")
+
+    async def unsubscribe_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        if update.effective_chat.type == "private":
+            await update.message.reply_text("This command must be used inside the group chat.")
+            return
+
+        success = self.query_manager.unsubscribe_user(user_id, chat_id)
+        if success:
+            await update.message.reply_text(f"You have unsubscribed from this group's notifications.")
+        else:
+            await update.message.reply_text("An error occurred while processing your request.")
+
+    async def broadcast_news_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not update.effective_chat or update.effective_chat.type == "private":
+            return
+
+        message_text = update.message.text
+        if "!News!" in message_text:
+            chat_id = update.effective_chat.id
+            user_id = update.effective_user.id
+            chat_member = await context.bot.get_chat_member(chat_id, user_id)
+            if chat_member.status not in ["administrator", "creator"]:
+                return
+
+            subscribers = self.query_manager.get_subscribers(chat_id)
+            if not subscribers:
+                await update.message.reply_text("Broadcasting skipped: There are no subscribers for this chat yet.")
+                return
+
+            broadcast_payload = f"**New Announcement from {update.effective_chat.title}:**\n\n{message_text}"
+            sent_count = 0
+            for sub_id in subscribers:
+                try:
+                    await context.bot.send_message(chat_id=sub_id, text=broadcast_payload, parse_mode="Markdown")
+                    sent_count += 1
+                except Forbidden:
+                    self.query_manager.unsubscribe_user(sub_id, chat_id)
+                except TelegramError:
+                    pass
+
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         received_text = update.message.text

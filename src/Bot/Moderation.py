@@ -27,7 +27,7 @@ class Moderation:
     async def ban_user(self, update: Update, target_user, chat_id, context):
         if self.query_manager.is_user_banned(target_user.id, chat_id):
             await update.message.reply_text(
-                f"⚠️ {target_user.first_name} is already banned in this chat."
+                f"{target_user.first_name} is already banned in this chat."
             )
             return
         try:
