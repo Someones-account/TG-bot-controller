@@ -6,10 +6,10 @@ class QueryManager:
         self.cursor = cursor
 
 
-    def create_entry(self, user_id, action, lift_time):
+    def create_entry(self, user_id, action, lift_time, chat_id):
         try:
-            query = "INSERT INTO ModerationActions (user_id, action, lift_time) VALUES (%s, %s, %s);"
-            self.cursor.execute(query, (user_id, action, lift_time))
+            query = "INSERT INTO ModerationActions (user_id, action, timestamp, lift_time, chat_id) VALUES (%s, %s, %s, %s, %s);"
+            self.cursor.execute(query, (user_id, action, datetime.now(), lift_time, chat_id))
             self.cursor.connection.commit()
 
         except:
@@ -27,6 +27,7 @@ class QueryManager:
 
     def get_all_records(self):
         try:
+            self.cursor.connection.commit()
             self.cursor.execute(f"SELECT * FROM ModerationActions;")
             return self.cursor.fetchall()
         except:
@@ -48,13 +49,25 @@ class QueryManager:
 
 
     def log_user(self, user):
+        self.cursor.connection.ping(reconnect=True)
         username = user.username
         first_name = user.first_name
 
-        upsert_query = """
+        query = """
         INSERT INTO Users (user_id, username, first_name) 
         VALUES (%s, %s, %s)
         ON DUPLICATE KEY UPDATE username = %s, first_name = %s;
         """
-        self.cursor.execute(upsert_query, (user.id, username, first_name, username, first_name))
+        self.cursor.execute(query, (user.id, username, first_name, username, first_name))
         self.cursor.connection.commit()
+
+
+    def revoke_action(self, user_id, action):
+        update_query = """
+                UPDATE ModerationActions 
+                SET lift_time = %s 
+                WHERE user_id = %s AND action = %s AND (lift_time > %s);
+                """
+
+        self.cursor.execute(update_query, (datetime.now(), user_id, action, datetime.now()))
+        self.connection.commit()

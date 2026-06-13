@@ -8,12 +8,12 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
-handler = InputHandlers()
 
 
 def main():
     token = keys.API_TOKEN
     application = Application.builder().token(token).build()
+    handler = InputHandlers(application)
     application.add_handler(CommandHandler("start", handler.start_command))
     application.add_handler(CommandHandler("help", handler.help_command))
     # application.add_handler(CommandHandler("display", handler.console_records))
