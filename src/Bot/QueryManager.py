@@ -46,3 +46,15 @@ class QueryManager:
 
         return result
 
+
+    def log_user(self, user):
+        username = user.username
+        first_name = user.first_name
+
+        upsert_query = """
+        INSERT INTO Users (user_id, username, first_name) 
+        VALUES (%s, %s, %s)
+        ON DUPLICATE KEY UPDATE username = %s, first_name = %s;
+        """
+        self.cursor.execute(upsert_query, (user.id, username, first_name, username, first_name))
+        self.cursor.connection.commit()
