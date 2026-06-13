@@ -1,4 +1,6 @@
 from datetime import datetime
+import pymysql
+from src.Bot.Connector import open_connection
 
 
 class QueryManager:
@@ -7,6 +9,7 @@ class QueryManager:
 
 
     def create_entry(self, user_id, action, lift_time, chat_id):
+        self.__ensure_connection()
         try:
             query = "INSERT INTO ModerationActions (user_id, action, timestamp, lift_time, chat_id) VALUES (%s, %s, %s, %s, %s);"
             self.cursor.execute(query, (user_id, action, datetime.now(), lift_time, chat_id))
@@ -17,6 +20,7 @@ class QueryManager:
 
 
     def get_banned_users(self):
+        self.__ensure_connection()
         try:
             query = "SELECT * FROM ModerationActions WHERE action = 'Ban' AND lift_time > %s;"
             self.cursor.execute(query, (datetime.now(),))
@@ -26,6 +30,7 @@ class QueryManager:
 
 
     def get_all_records(self):
+        self.__ensure_connection()
         try:
             self.cursor.connection.commit()
             self.cursor.execute(f"SELECT * FROM ModerationActions;")
@@ -35,6 +40,7 @@ class QueryManager:
 
 
     def format_records(self, records):
+        self.__ensure_connection()
         result = ""
         if records:
             for record in records:
@@ -49,6 +55,7 @@ class QueryManager:
 
 
     def log_user(self, user):
+        self.__ensure_connection()
         self.cursor.connection.ping(reconnect=True)
         username = user.username
         first_name = user.first_name
@@ -63,6 +70,7 @@ class QueryManager:
 
 
     def revoke_action(self, user_id, action):
+        self.__ensure_connection()
         update_query = """
                 UPDATE ModerationActions 
                 SET lift_time = %s 
@@ -71,3 +79,25 @@ class QueryManager:
 
         self.cursor.execute(update_query, (datetime.now(), user_id, action, datetime.now()))
         self.connection.commit()
+
+    def is_user_banned(self, user_id, chat_id):
+        self.__ensure_connection()
+
+        query = """
+        SELECT 1 FROM ModerationActions 
+        WHERE user_id = %s 
+          AND chat_id = %s 
+          AND action = 'Ban' 
+          AND (lift_time > NOW())
+        LIMIT 1;
+        """
+
+        self.cursor.execute(query, (user_id, chat_id))
+        return self.cursor.fetchone() is not None
+
+
+    def __ensure_connection(self):
+        try:
+            self.cursor.connection.ping(reconnect=True)
+        except (pymysql.MySQLError, AttributeError):
+            print("Database connection lost!")
