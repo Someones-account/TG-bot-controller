@@ -9,10 +9,10 @@ from src.Bot.QueryManager import QueryManager
 
 from src.Bot.LLM import ask_llm, ChatSession
 class InputHandlers:
-    def __init__(self):
+    def __init__(self, app):
         self.user_timestamps = defaultdict(list)
         self.query_manager = QueryManager(open_connection())
-        self.moderator = Moderation(self.query_manager)
+        self.moderator = Moderation(self.query_manager, app)
         self.chat_sessions = {}
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

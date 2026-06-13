@@ -1,4 +1,6 @@
 from datetime import datetime
+import pymysql
+from src.Bot.Connector import open_connection
 
 
 class QueryManager:
@@ -6,10 +8,11 @@ class QueryManager:
         self.cursor = cursor
 
 
-    def create_entry(self, user_id, action, lift_time):
+    def create_entry(self, user_id, action, lift_time, chat_id):
+        self.__ensure_connection()
         try:
-            query = "INSERT INTO ModerationActions (user_id, action, lift_time) VALUES (%s, %s, %s);"
-            self.cursor.execute(query, (user_id, action, lift_time))
+            query = "INSERT INTO ModerationActions (user_id, action, timestamp, lift_time, chat_id) VALUES (%s, %s, %s, %s, %s);"
+            self.cursor.execute(query, (user_id, action, datetime.now(), lift_time, chat_id))
             self.cursor.connection.commit()
 
         except:
@@ -17,6 +20,7 @@ class QueryManager:
 
 
     def get_banned_users(self):
+        self.__ensure_connection()
         try:
             query = "SELECT * FROM ModerationActions WHERE action = 'Ban' AND lift_time > %s;"
             self.cursor.execute(query, (datetime.now(),))
@@ -26,6 +30,7 @@ class QueryManager:
 
 
     def get_all_records(self):
+        self.__ensure_connection()
         try:
             self.cursor.connection.commit()
             self.cursor.execute(f"SELECT * FROM ModerationActions;")
@@ -35,6 +40,7 @@ class QueryManager:
 
 
     def format_records(self, records):
+        self.__ensure_connection()
         result = ""
         if records:
             for record in records:
@@ -49,22 +55,49 @@ class QueryManager:
 
 
     def log_user(self, user):
+        self.__ensure_connection()
+        self.cursor.connection.ping(reconnect=True)
         username = user.username
         first_name = user.first_name
 
-        upsert_query = """
+        query = """
         INSERT INTO Users (user_id, username, first_name) 
         VALUES (%s, %s, %s)
         ON DUPLICATE KEY UPDATE username = %s, first_name = %s;
         """
-        self.cursor.execute(upsert_query, (user.id, username, first_name, username, first_name))
+        self.cursor.execute(query, (user.id, username, first_name, username, first_name))
         self.cursor.connection.commit()
 
-    def delete_entry(self, log_id):
+
+    def revoke_action(self, user_id, action):
+        self.__ensure_connection()
+        update_query = """
+                UPDATE ModerationActions 
+                SET lift_time = %s 
+                WHERE user_id = %s AND action = %s AND (lift_time > %s);
+                """
+
+        self.cursor.execute(update_query, (datetime.now(), user_id, action, datetime.now()))
+        self.connection.commit()
+
+    def is_user_banned(self, user_id, chat_id):
+        self.__ensure_connection()
+
+        query = """
+        SELECT 1 FROM ModerationActions 
+        WHERE user_id = %s 
+          AND chat_id = %s 
+          AND action = 'Ban' 
+          AND (lift_time > NOW())
+        LIMIT 1;
+        """
+
+        self.cursor.execute(query, (user_id, chat_id))
+        return self.cursor.fetchone() is not None
+
+
+    def __ensure_connection(self):
         try:
-            # SQL command to delete a specific row based on its ID
-            query = "DELETE FROM ModerationActions WHERE id = %s;"
-            self.cursor.execute(query, (log_id,))
-            self.cursor.connection.commit()
-        except Exception as e:
-            print(f"Delete failed: {e}")
+            self.cursor.connection.ping(reconnect=True)
+        except (pymysql.MySQLError, AttributeError):
+            print("Database connection lost!")
