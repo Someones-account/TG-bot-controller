@@ -165,7 +165,7 @@ def ask_llm(s):
         return None
 
 class ChatSession:
-    def __init__(self, model=READY_MODEL):
+    def __init__(self, model="granite4.1:3b"):      #READY_MODEL
         self.messages = []
         self.model = model
 

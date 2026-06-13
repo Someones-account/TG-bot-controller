@@ -1,5 +1,5 @@
 import logging
-from telegram.ext import CommandHandler, MessageHandler
+from telegram.ext import CommandHandler
 from env import keys
 from InputHandlers import *
 
