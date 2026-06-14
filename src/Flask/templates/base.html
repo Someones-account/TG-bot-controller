@@ -27,10 +27,15 @@
                 </a>
                 <ul class="nav nav-pills flex-column mb-sm-auto mb-0 align-items-center align-items-sm-start w-100" id="menu">
                     <li class="nav-item w-100">
-                        <a href="{{ url_for('dashboard') }}" class="nav-link px-0 align-middle active">
+                        <a href="{{ url_for('dashboard') }}" class="nav-link px-0 align-middle {% if request.endpoint == 'dashboard' %}active{% endif %}">
                             <i class="fs-5 fa-solid fa-chart-line ms-2"></i> <span class="ms-2 d-none d-sm-inline">Dashboard</span>
                         </a>
                     </li>
+                        <li class="nav-item w-100 mt-2">
+                    <a href="{{ url_for('moderation') }}" class="nav-link px-0 align-middle {% if request.endpoint == 'moderation' %}active{% endif %}">
+                         <i class="fs-5 fa-solid fa-shield-halved ms-2"></i> <span class="ms-2 d-none d-sm-inline">Moderation</span>
+                    </a>
+                        </li>
                     <li class="nav-item w-100 mt-2">
                         <a href="#" class="nav-link px-0 align-middle">
                             <i class="fs-5 fa-solid fa-gear ms-2"></i> <span class="ms-2 d-none d-sm-inline">Settings</span>

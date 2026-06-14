@@ -26,16 +26,47 @@ app = Flask(__name__)
 
 @app.route('/')
 def dashboard():
-    # 1. Open the connection to the Aiven MySQL database
     cursor = open_connection()
     qm = QueryManager(cursor)
 
-    # 2. Fetch all moderation logs
-    # This will return a list of dictionaries with keys: id, user_id, action, timestamp, lift_time
-    logs = qm.get_all_records()
+    GROUP_CHAT_ID = "-1003713767184"
+    telegram_url = f"https://api.telegram.org/bot{keys.API_TOKEN}/getChatMemberCount"
 
-    # 3. Send the logs to your HTML page
-    return render_template('dashboard.html', logs=logs)
+    try:
+        # Hit the Telegram API
+        response = requests.get(telegram_url, params={"chat_id": GROUP_CHAT_ID})
+        data = response.json()
+
+        # If Telegram responds successfully, use their real number
+        if data.get("ok"):
+            total_users = data.get("result")
+        else:
+            # Fallback to database if Telegram gets mad
+            total_users = qm.get_total_users()
+    except Exception as e:
+        print(f"Failed to fetch from Telegram API: {e}")
+        total_users = qm.get_total_users()
+
+    # 1. Fetch our three summary metrics
+    total_subs = qm.get_total_subscribers()
+    recent_actions = qm.get_recent_actions_count()
+
+    return render_template('dashboard.html',
+                           total_users=total_users,
+                           total_subs=total_subs,
+                           recent_actions=recent_actions)
+
+
+@app.route('/moderation')
+def moderation():
+    cursor = open_connection()
+    qm = QueryManager(cursor)
+
+    # fetch active bans
+    active_bans = qm.get_banned_users()
+    # fetch moderation history
+    all_logs = qm.get_all_records()
+    return render_template('moderation.html', active_bans=active_bans, all_logs=all_logs)
 
 
 @app.route('/unban/<chat_id>/<int:user_id>', methods=['POST'])
