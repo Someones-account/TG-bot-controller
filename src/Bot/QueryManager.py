@@ -95,6 +95,40 @@ class QueryManager:
         self.cursor.execute(query, (user_id, chat_id))
         return self.cursor.fetchone() is not None
 
+    def subscribe_user(self, user_id, chat_id):
+        self.__ensure_connection()
+        try:
+            query = "INSERT IGNORE INTO Subscriptions (user_id, chat_id) VALUES (%s, %s);"
+            self.cursor.execute(query, (user_id, chat_id))
+            self.cursor.connection.commit()
+            return True
+        except Exception as e:
+            print(f"Failed to subscribe user: {e}")
+            self.cursor.connection.rollback()
+            return False
+
+    def unsubscribe_user(self, user_id, chat_id):
+        self.__ensure_connection()
+        try:
+            query = "DELETE FROM Subscriptions WHERE user_id = %s AND chat_id = %s;"
+            self.cursor.execute(query, (user_id, chat_id))
+            self.cursor.connection.commit()
+            return True
+        except Exception as e:
+            print(f"Failed to unsubscribe user: {e}")
+            self.cursor.connection.rollback()
+            return False
+
+    def get_subscribers(self, chat_id):
+        self.__ensure_connection()
+        try:
+            query = "SELECT user_id FROM Subscriptions WHERE chat_id = -1003713767184;"
+            self.cursor.execute(query)
+            return [row['user_id'] for row in self.cursor.fetchall()]
+        except Exception as e:
+            print(f"Failed to fetch subscribers: {e}")
+            return []
+
 
     def __ensure_connection(self):
         try:
