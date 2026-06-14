@@ -170,3 +170,23 @@ class QueryManager:
             self.cursor.connection.ping(reconnect=True)
         except (pymysql.MySQLError, AttributeError):
             print("Database connection lost!")
+
+
+    def get_total_users(self):
+        self.__ensure_connection()
+        self.cursor.execute("SELECT COUNT(*) as count FROM Users;")
+        res = self.cursor.fetchone()
+        return res['count'] if res else 0
+
+    def get_total_subscribers(self):
+        self.__ensure_connection()
+        self.cursor.execute("SELECT COUNT(DISTINCT user_id) as count FROM Subscriptions;")
+        res = self.cursor.fetchone()
+        return res['count'] if res else 0
+
+    def get_recent_actions_count(self):
+        self.__ensure_connection()
+        self.cursor.execute(
+            "SELECT COUNT(*) as count FROM ModerationActions WHERE timestamp >= NOW() - INTERVAL 1 DAY;")
+        res = self.cursor.fetchone()
+        return res['count'] if res else 0
