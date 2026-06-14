@@ -135,6 +135,28 @@ class InputHandlers:
                 except TelegramError:
                     pass
 
+    async def content_filter_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        phrases = self.query_manager.get_all_forbidden_phrases()
+        if not update.effective_chat or update.effective_chat.type == "private" or not update.message.text:
+            return
+
+        message_text = update.message.text.lower()
+        chat_id = update.effective_chat.id
+        user = update.effective_user
+        try:
+            chat_member = await context.bot.get_chat_member(chat_id, user.id)
+            if chat_member.status in ["administrator", "creator"]:
+                return
+        except TelegramError:
+            return
+
+        if any(phrase in message_text for phrase in phrases):
+            try:
+                await update.message.delete()
+                await self.moderator.timeout_user(update, user, chat_id, context, 60, "Language")
+            except TelegramError as te:
+                print(f"Content moderation failed: {te}")
+
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         received_text = update.message.text
@@ -147,7 +169,7 @@ class InputHandlers:
         self.user_timestamps[user_id].append(now)
 
         if len(self.user_timestamps[user_id]) > 10:
-            await self.moderator.timeout_user(update, user_id, chat_id, context)
+            await self.moderator.timeout_user(update, update.effective_user, chat_id, context, 5, "Spamming")
             self.query_manager.log_user(update.effective_user)
             self.user_timestamps[user_id].clear()
 

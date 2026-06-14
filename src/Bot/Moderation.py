@@ -8,17 +8,35 @@ class Moderation:
         self.query_manager = qm
         self.max_timestamp_obj = datetime(2038, 1, 1, 1, 0, 0)
 
-    async def timeout_user(self, update: Update, user_id, chat_id, context):
+    async def timeout_user(self, update: Update, user, chat_id, context, delta, action):
         try:
-            until_date = datetime.utcnow() + timedelta(minutes=5)
+            until_date = datetime.now() + timedelta(minutes=5)
+            mute_permissions = ChatPermissions(
+                can_send_messages=False,
+                can_send_audios=False,
+                can_send_documents=False,
+                can_send_photos=False,
+                can_send_videos=False,
+                can_send_video_notes=False,
+                can_send_voice_notes=False,
+                can_send_other_messages=False,
+                can_add_web_page_previews=False
+            )
             await context.bot.restrict_chat_member(
                 chat_id=chat_id,
-                user_id=user_id,
-                permissions=ChatPermissions(can_send_messages=False),
+                user_id=user.id,
+                permissions=mute_permissions,
                 until_date=until_date
             )
-            self.__record_action(user_id, "Mute 5min", until_date, chat_id)
-            await update.message.reply_text("Muted for 5 minutes due to spamming.")
+            self.__record_action(user.id, f"Mute {action}", until_date, chat_id)
+            notification = await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"{user.first_name} has been muted for {delta} minutes for using forbidden phrases."
+            )
+            context.job_queue.run_once(
+                lambda ctx: ctx.bot.delete_message(chat_id=chat_id, message_id=notification.message_id),
+                when=10
+            )
             return
         except Exception as e:
             print(f"Admin action failed: {e}")

@@ -20,6 +20,10 @@ def main():
     application.add_handler(CommandHandler("unsubscribe", handler.unsubscribe_command))
     application.add_handler(CommandHandler("ban", handler.ban_command))
     application.add_handler(CommandHandler("showbanned", handler.show_banned_command))
+    application.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handler.content_filter_handler),
+        group=0
+    )
     application.add_handler(CommandHandler("ai", handler.prompt_command))
     application.add_handler(CommandHandler("chat", handler.chat_command))
 
