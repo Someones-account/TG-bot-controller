@@ -122,11 +122,46 @@ class QueryManager:
     def get_subscribers(self, chat_id):
         self.__ensure_connection()
         try:
-            query = "SELECT user_id FROM Subscriptions WHERE chat_id = -1003713767184;"
-            self.cursor.execute(query)
+            query = "SELECT user_id FROM Subscriptions WHERE chat_id = %s;"
+            self.cursor.execute(query, (chat_id,))
             return [row['user_id'] for row in self.cursor.fetchall()]
         except Exception as e:
             print(f"Failed to fetch subscribers: {e}")
+            return []
+
+    def add_forbidden_phrase(self, phrase):
+        self.__ensure_connection()
+        try:
+            query = "INSERT IGNORE INTO ForbiddenPhrases (phrase) VALUES (%s);"
+            self.cursor.execute(query, (phrase.lower().strip(),))
+            self.cursor.connection.commit()
+            return True
+        except Exception as e:
+            print(f"Failed to add phrase: {e}")
+            self.cursor.connection.rollback()
+            return False
+
+    def remove_forbidden_phrase(self, phrase):
+        self.__ensure_connection()
+        try:
+            query = "DELETE FROM ForbiddenPhrases WHERE phrase = %s;"
+            self.cursor.execute(query, (phrase.lower().strip(),))
+            self.cursor.connection.commit()
+            return True
+        except Exception as e:
+            print(f"Failed to remove phrase: {e}")
+            self.cursor.connection.rollback()
+            return False
+
+    def get_all_forbidden_phrases(self):
+        self.__ensure_connection()
+        try:
+            query = "SELECT phrase FROM ForbiddenPhrases;"
+            self.cursor.execute(query)
+            rows = self.cursor.fetchall()
+            return [row['phrase'] for row in rows]
+        except Exception as e:
+            print(f"Failed to fetch phrases: {e}")
             return []
 
 
