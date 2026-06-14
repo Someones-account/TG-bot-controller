@@ -89,8 +89,14 @@ class InputHandlers:
 
         success = self.query_manager.subscribe_user(user_id, chat_id)
         if success:
-            await update.message.reply_text(
+
+            notification = await update.message.reply_text(
                 f"Done! {update.effective_user.first_name}, you've subscribed to notifications from this chat. To ensure your subscription message '/start' to this bot!")
+            await update.message.delete()
+            context.job_queue.run_once(
+                lambda ctx: ctx.bot.delete_message(chat_id=chat_id, message_id=notification.message_id),
+                when=10
+            )
         else:
             await update.message.reply_text("An error occurred while processing your subscription.")
 
@@ -103,7 +109,12 @@ class InputHandlers:
 
         success = self.query_manager.unsubscribe_user(user_id, chat_id)
         if success:
-            await update.message.reply_text(f"You have unsubscribed from this group's notifications.")
+            notification = await update.message.reply_text(f"You have unsubscribed from this group's notifications.")
+            await update.message.delete()
+            context.job_queue.run_once(
+                lambda ctx: ctx.bot.delete_message(chat_id=chat_id, message_id=notification.message_id),
+                when=10
+            )
         else:
             await update.message.reply_text("An error occurred while processing your request.")
 
