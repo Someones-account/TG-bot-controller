@@ -27,6 +27,9 @@ def main():
     application.add_handler(CommandHandler("ai", handler.prompt_command))
     application.add_handler(CommandHandler("chat", handler.chat_command))
 
+    application.add_handler(CommandHandler("vision", handler.vision_command))
+    application.add_handler(MessageHandler(filters.PHOTO, handler.vision_command))
+
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handler.broadcast_news_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handler.handle_message))
     print("Bot is starting up... Press Ctrl+C to stop.")

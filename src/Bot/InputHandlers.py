@@ -8,7 +8,13 @@ from src.DB.Connector import open_connection
 from src.Bot.Moderation import Moderation
 from src.Bot.QueryManager import QueryManager
 
-from src.DB.LLM import ask_llm, ChatSession
+from src.DB.LLM import *
+
+import tempfile
+import os
+import asyncio
+import re
+
 class InputHandlers:
     def __init__(self, app):
         self.user_timestamps = defaultdict(list)
@@ -190,3 +196,68 @@ class InputHandlers:
                 await update.message.reply_text(reply_text)
             except Exception as e:
                 print(f"Message handler failed: {e}")
+
+
+    async def vision_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        IMAGE_NOT_FOUND_MESSAGE = "Please attach an image, or reply to an image with /vision."
+        WAITING_MESSAGE = "Waiting for a vision model answer..."
+        FAIL_MESSAGE = "Vision failed: "
+        PROMPT_INSTRUCTION = "If not told otherwise. Be concise.\n"
+        DEFAULT_PROMPT = "Write all the text in the image. Don't comment it, only write the content of the image."
+
+
+        message = update.effective_message
+        if not message:
+            return
+
+        photo_sizes = None
+        if message.photo:
+            photo_sizes = message.photo
+        elif message.reply_to_message and message.reply_to_message.photo:
+            photo_sizes = message.reply_to_message.photo
+
+        if not photo_sizes:
+            await message.reply_text(IMAGE_NOT_FOUND_MESSAGE)
+            return
+
+        #await message.reply_text("Vision command received.")
+
+        photo = photo_sizes[-1]
+        tg_file = await photo.get_file()
+
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+                tmp_path = tmp.name
+
+            await tg_file.download_to_drive(custom_path=tmp_path)
+
+            instructions = ""
+            prompt =" ".join(context.args).strip() if context.args else ""
+            if not prompt:
+                raw_text = message.caption or ""
+                prompt = re.sub(r"^/vision(@\w+)?\s*", "", raw_text).strip()
+            
+            if not prompt:
+                prompt = DEFAULT_PROMPT
+            else:
+                instructions = PROMPT_INSTRUCTION
+
+
+
+            await message.reply_text(WAITING_MESSAGE)
+
+            answer = await asyncio.to_thread(
+                ask_vision_model,
+                instructions + prompt,
+                [tmp_path],  
+            )
+
+            await message.reply_text(answer)
+
+        except Exception as e:
+            await message.reply_text(f"{FAIL_MESSAGE}{e}")
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
