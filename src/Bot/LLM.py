@@ -1,6 +1,6 @@
 import ollama
 from ollama import generate, chat
-from env import llm
+from config import models 
 
 import subprocess
 import requests
@@ -9,10 +9,8 @@ import sys
 import logging
 
 OLLAMA_API_URL = "http://localhost:11434"
-DEFAULT_MODEL = "granite4.1:3b"
-#models = ollama.list()
-#for model in models['models']:
-#    print(model['model'])
+DEFAULT_LLM = models.DEFAULT_LLM
+DEFAULT_VISION_MODEL = models.DEFAULT_VISION_MODEL
 
 def is_ollama_running():
     try:
@@ -73,71 +71,47 @@ def pull_model(model_name):
         print(f"Exception occurred while pulling model: {e}")
         return False
 
-def init_ollama_model(preferred_models):
-    if not preferred_models:
-        print("No preferred models provided.")
-        return None
-
+def init_ollama_models(models):
     if not is_ollama_running():
         if not start_ollama():
-            return None
+            return False 
     else:
         print("Ollama is already running.")
 
     local_models = get_local_model_names()
     print(f"Models currently available locally: {local_models if local_models else 'None'}")
-
-    selected_model = None
-
-    for model in preferred_models:
-        exact_match = model
-        latest_match = f"{model}:latest"
-        
-        if exact_match in local_models:
-            selected_model = exact_match
-            break
-        elif latest_match in local_models:
-            selected_model = latest_match
-            break
-
-    if not selected_model:
-        target_model = preferred_models[0]
-        print(f"None of your preferred models were found locally. Falling back to downloading: {target_model}")
-        if pull_model(target_model):
-            selected_model = target_model
+    print(f"Models expected to initialize: {models}") 
+    for model in models:
+        if model in set(local_models):
+            print(f"{model} is already pulled")
         else:
-            print("Failed to secure a working model.")
-            return None
-    else:
-        print(f"Found preferred model locally: {selected_model}")
+            print(f"Pulling the model {model}...")
+            if pull_model(model):
+                print(f"Model {model} is pulled")
+            else:
+                print(f"Error: failed to pull a model ({model})")
+                return False
 
-    print(f"Loading model '{selected_model}' into memory...")
-    try:
-        preload_payload = {
-            "model": selected_model,
-            "keep_alive": "10m" # Keeps the model loaded in memory for 10 minutes
-        }
-        requests.post(f"{OLLAMA_API_URL}/api/generate", json=preload_payload, timeout=3)
-    except requests.Timeout:
-        pass 
-    except Exception as e:
-        print(f"Minor warning during model preload: {e}")
+        print(f"Loading model '{model}' into memory...")
+        try:
+            preload_payload = {
+                "model": model,
+                "keep_alive": "10m"
+            }
+            requests.post(f"{OLLAMA_API_URL}/api/generate", json=preload_payload, timeout=3)
+        except requests.Timeout:
+            pass 
+        except Exception as e:
+            print(f"Warning during model preload: {e}")
 
-    print(f"Model '{selected_model}' is primed and ready.")
-    
-    # 5. Pass its name back
-    return selected_model
+        print(f"Model '{model}' is ready.")
+    return True
 
 def launch_local_llm():
-    models = [DEFAULT_MODEL]
-    try:
-        models = llm.MODELS
-    except:
-        print(f"No custom model list found: Using default model - {DEFAULT_MODEL}")
-    READY_MODEL = init_ollama_model(models)
-
-    if READY_MODEL:
-        print(f"SUCCESS: The model '{READY_MODEL}' has been passed to the main application.")
+    models = [DEFAULT_VISION_MODEL,DEFAULT_LLM]
+    success =  init_ollama_models(models)
+    if success:
+        print(f"SUCCESS: Models '{models}' has been passed to the main application.")
     else:
         print("CRITICAL: Pipeline failed. Could not initialize Ollama or prepare a model.")
 
@@ -154,9 +128,9 @@ def run_model(model_name):
     return process
 
 def ask_llm(s):
-    if READY_MODEL:
+    if DEFAULT_LLM:
         response = generate(
-            model=READY_MODEL,
+            model=DEFAULT_LLM,
             prompt=s,
             stream = False
         )
@@ -164,13 +138,26 @@ def ask_llm(s):
     else:
         return None
 
+def ask_vision_model(s, images):
+    response = ollama.chat(
+        model=DEFAULT_VISION_MODEL,
+        messages=[
+            {
+                'role': 'user',
+                'content': s,
+                'images': images
+            }
+        ]
+    )
+    return(response['message']['content'])
+
 class ChatSession:
-    def __init__(self, model="granite4.1:3b"):      #READY_MODEL
+    def __init__(self, model=DEFAULT_LLM):
         self.messages = []
         self.model = model
 
     def ask(self, user_input):
-        if READY_MODEL:
+        if DEFAULT_LLM:
             self.messages.append({'role': 'user', 'content': user_input})
             stream = ollama.chat(
                 model=READY_MODEL,
@@ -183,30 +170,4 @@ class ChatSession:
             return response
         else:
             return None
-
-"""
-#EXAMPLE of a chat with memory
-chat_list = [ChatSession(), ChatSession()]
-while True:
-    for i, ch in enumerate(chat_list):
-        print(f"{i}>", end='')
-        inp = input()
-        if inp == "\\bye":
-            break
-        print(ch.ask(inp))
-
-"""
-
-"""
-#EXAMPLE of a prompt with stream
-stream = ollama.chat(
-    model=MODEL,
-    messages=[{'role': 'user', 'content': 'Write a haiku about debugging.'}],
-    stream=True,
-)
-for chunk in stream:
-    print(chunk['message']['content'], end='', flush=True)
-
-"""
-
 
