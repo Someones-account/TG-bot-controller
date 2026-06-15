@@ -1,6 +1,5 @@
 from datetime import datetime
 import pymysql
-from src.Bot.Connector import open_connection
 
 
 class QueryManager:

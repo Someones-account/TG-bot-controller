@@ -1,14 +1,14 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
-from telegram import Update, ChatPermissions
-from telegram.error import Forbidden, TelegramError, BadRequest
-from telegram.ext import Application, MessageHandler, filters, ContextTypes
+from telegram import Update
+from telegram.error import Forbidden, TelegramError
+from telegram.ext import ContextTypes
 
-from src.Bot.Connector import open_connection
+from src.DB.Connector import open_connection
 from src.Bot.Moderation import Moderation
 from src.Bot.QueryManager import QueryManager
 
-from src.Bot.LLM import ask_llm, ChatSession
+from src.DB.LLM import ask_llm, ChatSession
 class InputHandlers:
     def __init__(self, app):
         self.user_timestamps = defaultdict(list)
@@ -190,25 +190,3 @@ class InputHandlers:
                 await update.message.reply_text(reply_text)
             except Exception as e:
                 print(f"Message handler failed: {e}")
-
-    async def toggle_slow_mode(self, chat_id: int, duration: int, context: ContextTypes.DEFAULT_TYPE):
-        allowed_durations = [0, 10, 30, 60, 300, 900, 3600]
-        if duration not in allowed_durations:
-            return False
-
-        try:
-            chat_info = await context.bot.get_chat(chat_id)
-        except BadRequest:
-            return False
-        except TelegramError:
-            return False
-
-        try:
-            current_slow_mode = getattr(chat_info, 'slow_mode_delay', 0) or 0
-            if current_slow_mode > 0:
-                await context.bot.set_chat_slow_mode_delay(chat_id=chat_id, delay_seconds=0)
-            else:
-                await context.bot.set_chat_slow_mode_delay(chat_id=chat_id, delay_seconds=duration)
-            return True
-        except TelegramError:
-            return False
