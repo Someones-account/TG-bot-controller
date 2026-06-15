@@ -1,6 +1,6 @@
 import ollama
 from ollama import generate, chat
-from config import models 
+from config import models
 
 import subprocess
 import requests
@@ -74,13 +74,13 @@ def pull_model(model_name):
 def init_ollama_models(models):
     if not is_ollama_running():
         if not start_ollama():
-            return False 
+            return False
     else:
         print("Ollama is already running.")
 
     local_models = get_local_model_names()
     print(f"Models currently available locally: {local_models if local_models else 'None'}")
-    print(f"Models expected to initialize: {models}") 
+    print(f"Models expected to initialize: {models}")
     for model in models:
         if model in set(local_models):
             print(f"{model} is already pulled")
@@ -100,7 +100,7 @@ def init_ollama_models(models):
             }
             requests.post(f"{OLLAMA_API_URL}/api/generate", json=preload_payload, timeout=3)
         except requests.Timeout:
-            pass 
+            pass
         except Exception as e:
             print(f"Warning during model preload: {e}")
 

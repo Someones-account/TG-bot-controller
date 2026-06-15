@@ -1,8 +1,11 @@
 import requests
-from flask import Flask, render_template, redirect, url_for
+from flask import Flask, render_template, redirect, url_for, request, jsonify
 import os
 import sys
 from pathlib import Path
+
+from src.DB.Connector import open_connection
+from src.Bot.QueryManager import QueryManager
 
 # --- THE PATHING FIX ---
 # 1. Find our exact location (src/Flask)
@@ -19,8 +22,6 @@ sys.path.append(str(src_dir))
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from env import keys
-from Bot.Connector import open_connection
-from Bot.QueryManager import QueryManager
 app = Flask(__name__)
 
 
@@ -91,6 +92,43 @@ def unban_user(chat_id, user_id):
 
     # 3. Refresh the page
     return redirect(url_for('dashboard'))
+
+
+@app.route("/api/slow-mode", methods=["POST"])
+def handle_direct_slow_mode():
+    try:
+        data = request.get_json() or {}
+        chat_id = data.get("chat_id")
+        duration = data.get("duration")
+        if chat_id is None or duration is None:
+            return jsonify({"status": "error", "message": "Missing required fields"}), 400
+        try:
+            duration_int = int(duration)
+            chat_id_int = int(chat_id)
+        except ValueError:
+            return jsonify({"status": "error", "message": "Invalid integer format for chat_id or duration"}), 400
+
+        allowed_durations = [0, 10, 30, 60, 300, 900, 3600]
+        if duration_int not in allowed_durations:
+            return jsonify({"status": "error", "message": "Invalid duration value"}), 400
+
+        url = f"https://api.telegram.org/bot{keys.API_TOKEN}/setChatSlowModeDelay"
+        payload = {
+            "chat_id": chat_id_int,
+            "delay_seconds": duration_int
+        }
+
+        response = requests.post(url, json=payload, timeout=10)
+        response_data = response.json()
+        if not response_data.get("ok"):
+            error_msg = response_data.get("description", "Unknown Telegram API error")
+            return jsonify({"status": "error", "message": f"Telegram API error: {error_msg}"}), 400
+
+        message = "Slow mode disabled" if duration_int == 0 else f"Slow mode set to {duration_int}s"
+        return jsonify({"status": "success", "message": message}), 200
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 if __name__ == '__main__':
