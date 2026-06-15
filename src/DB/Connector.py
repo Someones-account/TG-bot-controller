@@ -21,6 +21,7 @@ def open_connection():
         return cursor
     except:
         print("Connection to the database failed")
-    finally:
-        connection.commit()
-        connection.close()
+        return None
+    #finally:
+        #connection.commit()
+        #connection.close()

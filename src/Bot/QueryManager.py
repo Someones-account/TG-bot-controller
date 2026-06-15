@@ -167,6 +167,7 @@ class QueryManager:
     def __ensure_connection(self):
         try:
             self.cursor.connection.ping(reconnect=True)
+            self.cursor.connection.commit()
         except (pymysql.MySQLError, AttributeError):
             print("Database connection lost!")
 
