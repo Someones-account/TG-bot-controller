@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from src.DB.Connector import open_connection
-from src.Bot.QueryManager import QueryManager
+from src.DB.QueryManager import QueryManager
 
 # --- THE PATHING FIX ---
 # 1. Find our exact location (src/Flask)

@@ -6,9 +6,9 @@ from telegram.ext import ContextTypes
 
 from src.DB.Connector import open_connection
 from src.Bot.Moderation import Moderation
-from src.Bot.QueryManager import QueryManager
+from src.DB.QueryManager import QueryManager
 
-from src.DB.LLM import ask_llm, ChatSession
+from src.Bot.LLM import ask_llm, ChatSession
 class InputHandlers:
     def __init__(self, app):
         self.user_timestamps = defaultdict(list)
