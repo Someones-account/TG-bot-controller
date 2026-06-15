@@ -15,7 +15,6 @@ project_root = src_dir.parent
 # Tell Python to look in BOTH folders when searching for imports like 'env' or 'Bot'
 sys.path.append(str(project_root))
 sys.path.append(str(src_dir))
-# ------------------------
 
 from src.DB.Connector import open_connection
 from src.Bot.QueryManager import QueryManager
@@ -51,10 +50,30 @@ def dashboard():
     total_subs = qm.get_total_subscribers()
     recent_actions = qm.get_recent_actions_count()
 
+    # 2. Fetch Chart Data
+    trend_data_raw = qm.get_moderation_trend()
+    growth_data_raw = qm.get_subscriber_growth()
+
+    # Format 7-Day Trend
+    trend_labels = [str(row['action_date']) for row in trend_data_raw]
+    trend_values = [row['count'] for row in trend_data_raw]
+
+    # Format Subscriber Growth (Cumulative)
+    growth_labels = [str(row['sub_date']) for row in growth_data_raw]
+    growth_values = []
+    current_total = 0
+    for row in growth_data_raw:
+        current_total += row['count']
+        growth_values.append(current_total)
+
     return render_template('dashboard.html',
                            total_users=total_users,
                            total_subs=total_subs,
-                           recent_actions=recent_actions)
+                           recent_actions=recent_actions,
+                           trend_labels=trend_labels,
+                           trend_values=trend_values,
+                           growth_labels=growth_labels,
+                           growth_values=growth_values)
 
 
 @app.route('/moderation')
