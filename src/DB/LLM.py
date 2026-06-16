@@ -1,6 +1,6 @@
 import ollama
 from ollama import generate, chat
-from config import models
+from config import models, ai
 
 import subprocess
 import requests
@@ -11,6 +11,9 @@ import logging
 OLLAMA_API_URL = "http://localhost:11434"
 DEFAULT_LLM = models.DEFAULT_LLM
 DEFAULT_VISION_MODEL = models.DEFAULT_VISION_MODEL
+
+CONTEXT_CHAT_INSTRUCTION = ai.CONTEXT_CHAT_INSTRUCTION
+CONTEXT_CHAT_KEY = ai.CONTEXT_CHAT_KEY
 
 def is_ollama_running():
     try:
@@ -128,6 +131,7 @@ def run_model(model_name):
     return process
 
 def ask_llm(s):
+    print("LLM ASKED", flush=True)
     if DEFAULT_LLM:
         response = generate(
             model=DEFAULT_LLM,
@@ -160,12 +164,37 @@ class ChatSession:
         if DEFAULT_LLM:
             self.messages.append({'role': 'user', 'content': user_input})
             stream = ollama.chat(
-                model=READY_MODEL,
+                model=DEFAULT_LLM,
                 messages=self.messages,
                 stream=False,
             )
             response = stream['message']['content']
             self.messages.append({'role': 'assistant', 'content': response})
+
+            return response
+        else:
+            return None
+
+
+class ContextChat:
+    def __init__(self, model=DEFAULT_LLM):
+        self.messages = [
+                {'role':'user', 'content': ai.CONTEXT_CHAT_INSTRUCTION}
+                ]
+        self.model = model
+    
+    def record(self, user_id, user_input):
+        self.messages.append({'role':'user', 'content':f"From {user_id}: {user_input}"})
+
+    def ask(self, user_input):
+        if DEFAULT_LLM:
+            self.messages.append({'role': 'user', 'content': ai.CONTEXT_CHAT_KEY+" "+user_input})
+            stream = ollama.chat(
+                model=DEFAULT_LLM,
+                messages=self.messages,
+                stream=False,
+            )
+            response = stream['message']['content']
 
             return response
         else:
