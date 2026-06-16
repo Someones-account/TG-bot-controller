@@ -70,8 +70,8 @@ Stores:
 | `/subscribe`              | Subscribe to group announcements     |
 | `/unsubscribe`            | Remove subscription                  |
 | `/ai <prompt>`            | Query the language model             |
-| `/chat <message>`         | Continue a personal AI chat session  |
-| `/context_chat <message>` | Chat with shared contextual memory   |
+| `/chat <message>`         | Start/Continue a personal AI chat session  |
+| `/context_chat <message>` | Chat with telegram group message history  |
 | `/vision [prompt]`        | Analyze an image or extract text     |
 | `/password <group_id>`    | Generate dashboard credentials       |
 
@@ -206,12 +206,13 @@ InputHandlers
 ### Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/telegram-ai-bot.git
-cd telegram-ai-bot
+git clone https://github.com/Someones-account/TG-bot-controller.git
+cd TG-bot-controller/
 ```
 
 ### Create Virtual Environment
 
+Linux
 ```bash
 python -m venv venv
 source venv/bin/activate
@@ -231,15 +232,10 @@ pip install -r requirements.txt
 
 ### Configure Environment
 
-Create a configuration file and provide:
-
+Create a configuration file keys.py in env folder (TG-bot-controller/env/keys.py) with contents:
 ```python
-BOT_TOKEN="YOUR_TELEGRAM_BOT_TOKEN"
-
-AI_API_KEY="YOUR_AI_PROVIDER_KEY"
-
-MODERATION=True
-MODERATION_INSTRUCTION="..."
+API_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+PASSWORD = "YOUR_TELEGRAM_BOT_PASSWORD"
 ```
 
 Configure database credentials according to your environment.
@@ -273,6 +269,7 @@ Administrator privileges are recommended in moderated groups.
 * python-telegram-bot
 * Asyncio
 * SQL Database
-* Large Language Models (LLMs)
-* Vision Models / OCR
+* Ollama
+  - Large Language Models - (by default granite4.1:3b)
+  - Vision Models / OCR - (by default minicpm-v4.6:1b)
 
