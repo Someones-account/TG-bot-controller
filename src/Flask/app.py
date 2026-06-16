@@ -1,26 +1,21 @@
 import requests
 import json
 from datetime import datetime
-from flask import Flask, render_template, redirect, url_for, request, jsonify, Response, session
+from flask import Flask, render_template, redirect, url_for, request, jsonify, Response, session, flash
 import os
 import sys
 from pathlib import Path
 
-# --- THE PATHING FIX ---
-# 1. Find our exact location (src/Flask)
+# Fix pathing issues for imports
 current_dir = Path(__file__).resolve().parent
-# 2. Go up one level to 'src'
 src_dir = current_dir.parent
-# 3. Go up one more level to the Project Root ('TG-bot-controller')
 project_root = src_dir.parent
-
-# Tell Python to look in BOTH folders when searching for imports like 'env' or 'Bot'
 sys.path.append(str(project_root))
 sys.path.append(str(src_dir))
 
 from src.DB.Connector import open_connection
 from src.Bot.QueryManager import QueryManager
-from src.DB.LLM import ask_llm, is_ollama_running
+from src.Bot.LLM import ask_llm, is_ollama_running
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from env import keys
 app = Flask(__name__)
@@ -43,7 +38,7 @@ def dashboard():
 
     try:
         # Hit the Telegram API
-        response = requests.get(telegram_url, params={"chat_id": GROUP_CHAT_ID}) #add timeout = 5
+        response = requests.get(telegram_url, params={"chat_id": GROUP_CHAT_ID}, timeout=5)
         data = response.json()
 
         # If Telegram responds successfully, use their real number
@@ -91,14 +86,33 @@ def dashboard():
 
 @app.route('/moderation')
 def moderation():
+    if not session.get('is_authenticated'):
+        return redirect(url_for('login_route'))
     cursor = open_connection()
     qm = QueryManager(cursor)
+    # fetch forbidden phrases list
+    forbidden_phrases = qm.get_all_forbidden_phrases()
 
-    # fetch active bans
-    active_bans = qm.get_banned_users()
-    # fetch moderation history
+    # count metrics for the pie chart
+    cursor.execute("SELECT COUNT(*) as count FROM ModerationActions WHERE action = 'Ban';")
+    ban_count = cursor.fetchone()['count'] or 0
+
+    cursor.execute("SELECT COUNT(*) as count FROM ModerationActions WHERE action LIKE 'Mute%';")
+    mute_count = cursor.fetchone()['count'] or 0
+
+    # fetch active restrictions
+    cursor.execute("SELECT * FROM ModerationActions WHERE lift_time > NOW();")
+    active_restrictions = cursor.fetchall()
+
+    # fetch complete history log
     all_logs = qm.get_all_records()
-    return render_template('moderation.html', active_bans=active_bans, all_logs=all_logs)
+
+    return render_template('moderation.html',
+                           active_restrictions=active_restrictions,
+                           all_logs=all_logs,
+                           forbidden_phrases=forbidden_phrases,
+                           ban_count=ban_count,
+                           mute_count=mute_count)
 
 
 @app.route('/unban/<chat_id>/<int:user_id>', methods=['POST'])
@@ -106,7 +120,10 @@ def unban_user(chat_id, user_id):
     cursor = open_connection()
     qm = QueryManager(cursor)
 
-    # 1. Tell Telegram Servers to physically unban the user
+    # track the explicit action rule for removal
+    action_to_revoke = request.form.get('action', 'Ban')
+
+    # release call to Telegram core API
     telegram_url = f"https://api.telegram.org/bot{keys.API_TOKEN}/unbanChatMember"
     response = requests.get(telegram_url, params={
         "chat_id": chat_id,
@@ -114,15 +131,34 @@ def unban_user(chat_id, user_id):
         "only_if_banned": True
     })
 
-    # 2. If Telegram successfully unbanned them (HTTP 200), update our database
+    # verify target interface update status
     if response.status_code == 200:
-        # We use your team lead's new Soft-Delete function!
-        qm.revoke_action(user_id, "Ban")
+        qm.revoke_action(user_id, action_to_revoke)
+        flash(f"Successfully lifted {action_to_revoke} for User {user_id}!", "success")
     else:
-        print(f"Failed to unban on Telegram: {response.text}")
+        flash(f"Telegram API rejected the request to unban User {user_id}.", "danger")
+    return redirect(url_for('moderation'))
 
-    # 3. Refresh the page
-    return redirect(url_for('dashboard'))
+
+# --- FORBIDDEN PHRASE MANIPULATION ---
+@app.route('/api/forbidden-phrases/add', methods=['POST'])
+def add_phrase():
+    cursor = open_connection()
+    qm = QueryManager(cursor)
+    phrase = request.form.get('phrase')
+    if phrase:
+        qm.add_forbidden_phrase(phrase)
+    return redirect(url_for('moderation'))
+
+
+@app.route('/api/forbidden-phrases/remove', methods=['POST'])
+def remove_phrase():
+    cursor = open_connection()
+    qm = QueryManager(cursor)
+    phrase = request.form.get('phrase')
+    if phrase:
+        qm.remove_forbidden_phrase(phrase)
+    return redirect(url_for('moderation'))
 
 
 # @app.route("/api/slow-mode", methods=["POST"])
@@ -276,6 +312,28 @@ def export_logs():
     return Response(json_data,
                     mimetype='application/json',
                     headers={'Content-Disposition': 'attachment;filename=moderation_logs.json'})
+
+
+@app.route('/settings')
+def settings():
+    # Enforce security: kick out unauthorized guests
+    if not session.get('is_authenticated'):
+        return redirect(url_for('login_route'))
+
+    # Check background statuses dynamically
+    ai_online = is_ollama_running()
+
+    # Check if we can safely talk to our MySQL database
+    try:
+        cursor = open_connection()
+        db_status = "Connected"
+    except Exception:
+        db_status = "Disconnected"
+
+    return render_template('settings.html',
+                           ai_online=ai_online,
+                           db_status=db_status,
+                           bot_username="@ChatStatsBot")
 
 if __name__ == '__main__':
     app.run(debug=True)

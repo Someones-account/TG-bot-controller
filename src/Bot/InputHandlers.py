@@ -8,7 +8,7 @@ from src.DB.Connector import open_connection
 from src.Bot.Moderation import Moderation
 from src.Bot.QueryManager import QueryManager
 
-from src.DB.LLM import *
+from src.Bot.LLM import *
 from config import ai 
 
 import tempfile
