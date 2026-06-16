@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container d-flex justify-content-center align-items-center" style="min-height: 70vh;">
+    <div class="card bg-dark text-white border-secondary shadow-lg p-4" style="width: 100%; max-width: 450px;">
+        <div class="card-body">
+            <h3 class="text-center fw-bold text-uppercase mb-2 text-primary">Admin Gateway</h3>
+            <p class="text-white-50 text-center small mb-4">Provide your authentication token generated via the bot</p>
+            
+            {% if error %}
+                <div class="alert alert-danger py-2 small" role="alert">⚠️ {{ error }}</div>
+            {% endif %}
+
+            <form action="{{ url_for('login_route') }}" method="POST">
+                <div class="mb-3">
+                    <label class="form-label text-white-50 small fw-bold">TELEGRAM USER ID</label>
+                    <input type="text" name="user_id" class="form-control bg-dark-subtle text-white border-secondary" required placeholder="e.g. 12345678">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-white-50 small fw-bold">GROUP CHAT ID</label>
+                    <input type="text" name="chat_id" class="form-control bg-dark-subtle text-white border-secondary" required placeholder="e.g. -100123456789">
+                </div>
+                <div class="mb-4">
+                    <label class="form-label text-white-50 small fw-bold">DASHBOARD PASSWORD</label>
+                    <input type="password" name="password" class="form-control bg-dark-subtle text-white border-secondary" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn btn-primary w-100 fw-bold py-2">AUTHENTICATE</button>
+            </form>
+            <div class="text-center mt-3">
+                <small class="text-white-50">Need a password? DM the bot: <code class="text-info">/password [chat_id]</code></small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
