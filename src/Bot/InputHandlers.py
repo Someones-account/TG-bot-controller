@@ -9,11 +9,14 @@ from src.Bot.Moderation import Moderation
 from src.Bot.QueryManager import QueryManager
 
 from src.DB.LLM import *
+from config import ai 
 
 import tempfile
 import os
 import asyncio
 import re
+
+ContextChat = ContextChat()
 
 class InputHandlers:
     def __init__(self, app):
@@ -34,6 +37,9 @@ class InputHandlers:
                     "/ban - Ban user (you should reply to user's message)",
                     "/ai - Prompt LLM",
                     "/chat - Start/Continue LLM Chat session",
+                    "/context_chat - Prompt LLM with context (It remebers chat history)",
+                    "/vision - Prompt LLM about the image. By default(without any parameters provided, just writes text from image) ",
+        
                     ]
         await update.message.reply_text("Available commands:\n"+"\n".join(cmd_list))
 
@@ -82,6 +88,13 @@ class InputHandlers:
             else:
                 self.chat_sessions[user_id] = ChatSession()
                 await update.message.reply_text("\U0001f916:"+self.chat_sessions[user_id].ask(instructions+received_text))
+        else:
+            await update.message.reply_text("Please provide prompt")
+
+    async def context_chat_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        received_text = " ".join(context.args)
+        if received_text:
+            await update.message.reply_text("\U0001F4DD:"+ContextChat.ask(received_text))
         else:
             await update.message.reply_text("Please provide prompt")
 
@@ -196,6 +209,14 @@ class InputHandlers:
                 await update.message.reply_text(reply_text)
             except Exception as e:
                 print(f"Message handler failed: {e}")
+
+        if ai.MODERATION:
+            result = ask_llm(ai.MODERATION_INSTRUCTION+"\n MESSAGE:\n"+received_text.lower())
+            if result.lower()=="yes":
+                await update.message.reply_text("UNPLEASANT CONTENT DETECTED")
+        
+        ContextChat.record(user_id, received_text)
+
 
 
     async def vision_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
