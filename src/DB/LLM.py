@@ -131,6 +131,10 @@ def run_model(model_name):
     return process
 
 def ask_llm(s):
+    if not is_ollama_running():
+        if not start_ollama():
+            return "Error: Cannot run Ollama"
+
     print("LLM ASKED", flush=True)
     if DEFAULT_LLM:
         response = generate(
@@ -143,6 +147,10 @@ def ask_llm(s):
         return None
 
 def ask_vision_model(s, images):
+    if not is_ollama_running():
+        if not start_ollama():
+            return "Error: Cannot run Ollama"
+
     response = ollama.chat(
         model=DEFAULT_VISION_MODEL,
         messages=[
@@ -161,6 +169,10 @@ class ChatSession:
         self.model = model
 
     def ask(self, user_input):
+        if not is_ollama_running():
+            if not start_ollama():
+                return "Error: Cannot run Ollama"
+
         if DEFAULT_LLM:
             self.messages.append({'role': 'user', 'content': user_input})
             stream = ollama.chat(
@@ -187,6 +199,10 @@ class ContextChat:
         self.messages.append({'role':'user', 'content':f"From {user_id}: {user_input}"})
 
     def ask(self, user_input):
+        if not is_ollama_running():
+            if not start_ollama():
+                return "Error: Cannot run Ollama"
+
         if DEFAULT_LLM:
             self.messages.append({'role': 'user', 'content': ai.CONTEXT_CHAT_KEY+" "+user_input})
             stream = ollama.chat(
