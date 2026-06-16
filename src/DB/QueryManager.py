@@ -18,25 +18,51 @@ class QueryManager:
         except:
             print("Query failed!")
 
-
     def get_banned_users(self):
         self.__ensure_connection()
         try:
-            query = "SELECT * FROM ModerationActions WHERE action = 'Ban' AND lift_time > %s;"
+            # Performs a JOIN to collect rows where user_id matches across both tables
+            query = """
+                SELECT 
+                    ma.id,
+                    ma.user_id,
+                    ma.action,
+                    ma.timestamp,
+                    ma.lift_time,
+                    ma.chat_id,
+                    u.username
+                FROM ModerationActions ma
+                INNER JOIN Users u ON ma.user_id = u.user_id
+                WHERE ma.action = 'Ban' AND ma.lift_time > %s;
+            """
             self.cursor.execute(query, (datetime.now(),))
             return self.cursor.fetchall()
-        except:
-            print("Query failed!")
-
+        except Exception as e:
+            print(f"Query failed! Error: {e}")
+            return []
 
     def get_all_records(self):
         self.__ensure_connection()
         try:
             self.cursor.connection.commit()
-            self.cursor.execute(f"SELECT * FROM ModerationActions;")
+            # Explicitly selecting matching identifiers using a LEFT JOIN
+            query = """
+                SELECT 
+                    ma.id,
+                    ma.user_id,
+                    ma.action,
+                    ma.timestamp,
+                    ma.lift_time,
+                    ma.chat_id,
+                    u.username
+                FROM ModerationActions ma
+                LEFT JOIN Users u ON ma.user_id = u.user_id
+            """
+            self.cursor.execute(query)
             return self.cursor.fetchall()
-        except:
-            print("Query failed!")
+        except Exception as e:
+            print(f"Query failed! Error: {e}")
+            return []
 
 
     def format_records(self, records):
