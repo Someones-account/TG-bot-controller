@@ -20,6 +20,7 @@ def main():
     application.add_handler(CommandHandler("unsubscribe", handler.unsubscribe_command))
     application.add_handler(CommandHandler("ban", handler.ban_command))
     application.add_handler(CommandHandler("showbanned", handler.show_banned_command))
+    application.add_handler(CommandHandler("password", handler.get_password_command))
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, handler.content_filter_handler),
         group=0

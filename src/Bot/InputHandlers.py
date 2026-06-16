@@ -124,6 +124,49 @@ class InputHandlers:
         else:
             await update.message.reply_text("An error occurred while processing your request.")
 
+    async def get_password_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if update.effective_chat.type != "private":
+            await update.message.reply_text(
+                "For security reasons, this command can only be used in a private message with me.")
+            return
+
+        if not context.args:
+            await update.message.reply_text("💡 Usage: Send `/password <group_chat_id>` to generate a dashboard token.",
+                                            parse_mode="Markdown")
+            return
+
+        try:
+            target_chat_id = int(context.args[0])
+        except ValueError:
+            await update.message.reply_text("Invalid Group ID format. Please check the numerical argument.")
+            return
+
+        user_id = update.effective_user.id
+        username = update.effective_user.username or update.effective_user.first_name
+        try:
+            member_status = await context.bot.get_chat_member(chat_id=target_chat_id, user_id=user_id)
+            if member_status.status not in ["administrator", "creator"]:
+                await update.message.reply_text(
+                    "Access Denied: You are not registered as an administrator in that group.")
+                return
+
+            pwd = self.query_manager.generate_or_get_chat_password(user_id, target_chat_id, username)
+
+            target_chat = await context.bot.get_chat(target_chat_id)
+            response_msg = (
+                f"**Dashboard Key Assigned**\n\n"
+                f"**Group:** {target_chat.title}\n"
+                f"**Your User ID:** `{user_id}`\n"
+                f"**Web Password:** `{pwd}`\n\n"
+                f"Keep this password confidential. Use these details to log into your control panel."
+            )
+            await update.message.reply_text(response_msg, parse_mode="Markdown")
+
+        except TelegramError as e:
+            print(f"Telegram Admin Validation failed: {e}")
+            await update.message.reply_text(
+                "Verification Failed: I cannot verify your status. Am I an admin in that group?")
+
     async def broadcast_news_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not update.effective_chat or update.effective_chat.type == "private":
             return

@@ -1,5 +1,5 @@
 import requests
-from flask import Flask, render_template, redirect, url_for, request, jsonify
+from flask import Flask, render_template, redirect, url_for, request, jsonify, session
 import os
 import sys
 from pathlib import Path
@@ -21,10 +21,17 @@ from src.Bot.QueryManager import QueryManager
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from env import keys
 app = Flask(__name__)
+try:
+    app.secret_key = keys.SECRET_KEY
+except AttributeError:
+    app.secret_key = "super-secret-fallback-token-string-change-this-in-production!"
 
 
 @app.route('/')
 def dashboard():
+    if not session.get('is_authenticated'):
+        return redirect(url_for('login_route'))
+
     cursor = open_connection()
     qm = QueryManager(cursor)
 
@@ -189,6 +196,33 @@ def send_broadcast():
 
     # 4. Refresh the dashboard page instantly
     return redirect(url_for('dashboard'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login_route():
+    if request.method == 'POST':
+        user_id = request.form.get('user_id')
+        chat_id = request.form.get('chat_id')
+        password = request.form.get('password')
+
+        cursor = open_connection()
+        qm = QueryManager(cursor)
+
+        if qm.verify_admin_login(user_id, chat_id, password):
+            session['is_authenticated'] = True
+            session['active_user_id'] = user_id
+            session['active_chat_id'] = chat_id
+            return redirect(url_for('dashboard'))
+        else:
+            return render_template('login.html', error="Invalid login parameters supplied.")
+
+    return render_template('login.html', error=None)
+
+
+@app.route('/logout')
+def logout_route():
+    session.clear()
+    return redirect(url_for('login_route'))
+
 
 if __name__ == '__main__':
     app.run(debug=True)

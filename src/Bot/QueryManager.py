@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime
 import pymysql
 
@@ -215,3 +216,38 @@ class QueryManager:
                 """
         self.cursor.execute(query)
         return self.cursor.fetchall()
+
+    def generate_or_get_chat_password(self, user_id, chat_id, username):
+        self.__ensure_connection()
+        try:
+            check_query = "SELECT web_password FROM GroupAdmins WHERE user_id = %s AND chat_id = %s;"
+            self.cursor.execute(check_query, (user_id, chat_id))
+            result = self.cursor.fetchone()
+            existing_pwd = result['web_password'] if isinstance(result, dict) else (result[0] if result else None)
+            if existing_pwd:
+                return existing_pwd
+
+            new_password = secrets.token_hex(6)
+
+            upsert_query = """
+            INSERT INTO GroupAdmins (user_id, chat_id, username, web_password)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE username = %s, web_password = %s;
+            """
+            self.cursor.execute(upsert_query, (user_id, chat_id, username, new_password, username, new_password))
+            self.cursor.connection.commit()
+            return new_password
+        except Exception as e:
+            print(f"Failed handling admin passwords: {e}")
+            self.cursor.connection.rollback()
+            return ""
+
+    def verify_admin_login(self, user_id, chat_id, password_input):
+        self.__ensure_connection()
+        try:
+            query = "SELECT 1 FROM GroupAdmins WHERE user_id = %s AND chat_id = %s AND web_password = %s;"
+            self.cursor.execute(query, (user_id, chat_id, password_input.strip()))
+            return self.cursor.fetchone() is not None
+        except Exception as e:
+            print(f"Verification process failed: {e}")
+            return False
