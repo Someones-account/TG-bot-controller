@@ -203,6 +203,18 @@ InputHandlers
 
 ## Installation
 
+### Install Ollama
+
+Linux:
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+Windows:
+```PowerShell
+irm https://ollama.com/install.ps1 | iex
+```
+
 ### Clone Repository
 
 ```bash
