@@ -190,3 +190,28 @@ class QueryManager:
             "SELECT COUNT(*) as count FROM ModerationActions WHERE timestamp >= NOW() - INTERVAL 1 DAY;")
         res = self.cursor.fetchone()
         return res['count'] if res else 0
+
+    def get_moderation_trend(self):
+        self.__ensure_connection()
+        # Groups actions by day for the last 7 days
+        query = """
+                SELECT DATE (timestamp) as action_date, COUNT (*) as count
+                FROM ModerationActions
+                WHERE timestamp >= CURDATE() - INTERVAL 6 DAY
+                GROUP BY action_date
+                ORDER BY action_date ASC; \
+                """
+        self.cursor.execute(query)
+        return self.cursor.fetchall()
+
+    def get_subscriber_growth(self):
+        self.__ensure_connection()
+        # Gets daily subscriber counts to build a growth curve
+        query = """
+                SELECT DATE (subscribed_at) as sub_date, COUNT (*) as count
+                FROM Subscriptions
+                GROUP BY sub_date
+                ORDER BY sub_date ASC; \
+                """
+        self.cursor.execute(query)
+        return self.cursor.fetchall()

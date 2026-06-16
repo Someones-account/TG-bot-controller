@@ -15,10 +15,10 @@ project_root = src_dir.parent
 # Tell Python to look in BOTH folders when searching for imports like 'env' or 'Bot'
 sys.path.append(str(project_root))
 sys.path.append(str(src_dir))
-# ------------------------
 
 from src.DB.Connector import open_connection
 from src.Bot.QueryManager import QueryManager
+from src.DB.LLM import ask_llm, is_ollama_running
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from env import keys
 app = Flask(__name__)
@@ -51,10 +51,33 @@ def dashboard():
     total_subs = qm.get_total_subscribers()
     recent_actions = qm.get_recent_actions_count()
 
+    # 2. Fetch Chart Data
+    trend_data_raw = qm.get_moderation_trend()
+    growth_data_raw = qm.get_subscriber_growth()
+
+    # Format 7-Day Trend
+    trend_labels = [str(row['action_date']) for row in trend_data_raw]
+    trend_values = [row['count'] for row in trend_data_raw]
+
+    # Format Subscriber Growth (Cumulative)
+    growth_labels = [str(row['sub_date']) for row in growth_data_raw]
+    growth_values = []
+    current_total = 0
+    for row in growth_data_raw:
+        current_total += row['count']
+        growth_values.append(current_total)
+
+    # Check if Ollama is running in the background
+    ai_status = "Online" if is_ollama_running() else "Offline"
     return render_template('dashboard.html',
                            total_users=total_users,
                            total_subs=total_subs,
-                           recent_actions=recent_actions)
+                           recent_actions=recent_actions,
+                           trend_labels=trend_labels,
+                           trend_values=trend_values,
+                           growth_labels=growth_labels,
+                           growth_values=growth_values,
+                           ai_status = ai_status)
 
 
 @app.route('/moderation')
@@ -170,6 +193,32 @@ def send_broadcast():
 
     # 4. Refresh the dashboard page instantly
     return redirect(url_for('dashboard'))
+
+
+@app.route("/api/ai-draft", methods=["POST"])
+def ai_draft():
+    data = request.get_json() or {}
+    prompt = data.get("prompt")
+    mode = data.get("mode", "Formal")
+
+    if not prompt:
+        return jsonify({"status": "error", "message": "No prompt provided"}), 400
+
+    # Give the AI specific roles based on the radio button clicked
+    if mode == "Casual":
+        instructions = "You are a Telegram Messages Rewriter for Administrator of Telegram group chat. Rewrite the following message to be casual and friendly. Keep slang if appropriate, but make slight grammar corrections so it is perfectly understandable. Do not output any thinking process, just the final message.\n\nMessage: "
+    elif mode == "Short":
+        instructions = "You are a Telegram Messages Rewriter for Administrator of Telegram group chat. Rewrite the following message to be as short and concise as physically possible while still presenting the intended meaning. Do not output any thinking process, just the final message.\n\nMessage: "
+    else:  # Formal
+        instructions = "You are a Telegram Messages Rewriter for Administrator of Telegram group chat. Rewrite the following message to be highly professional, formal, and grammatically perfect. Do not output any thinking process, just the final message.\n\nMessage: "
+
+    try:
+        response_text = ask_llm(instructions + prompt)
+        # Clean up the response to remove unwanted quotes the AI might add
+        response_text = response_text.strip().strip('"').strip("'")
+        return jsonify({"status": "success", "response": response_text}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

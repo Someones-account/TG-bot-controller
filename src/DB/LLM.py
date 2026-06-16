@@ -118,7 +118,7 @@ def launch_local_llm():
     else:
         print("CRITICAL: Pipeline failed. Could not initialize Ollama or prepare a model.")
 
-launch_local_llm()
+#launch_local_llm()
 
 def run_model(model_name):
     process = subprocess.Popen(
@@ -164,7 +164,7 @@ class ChatSession:
         if DEFAULT_LLM:
             self.messages.append({'role': 'user', 'content': user_input})
             stream = ollama.chat(
-                model=DEFAULT_LLM,
+                model=self.model,
                 messages=self.messages,
                 stream=False,
             )
@@ -190,7 +190,7 @@ class ContextChat:
         if DEFAULT_LLM:
             self.messages.append({'role': 'user', 'content': ai.CONTEXT_CHAT_KEY+" "+user_input})
             stream = ollama.chat(
-                model=DEFAULT_LLM,
+                model=self.model,
                 messages=self.messages,
                 stream=False,
             )
