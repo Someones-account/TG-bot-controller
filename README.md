@@ -169,36 +169,33 @@ The announcement will be delivered via private messages to all subscribers.
 ## Architecture
 
 ```text
-InputHandlers
-│
-├── Moderation
-│   ├── Ban Management
-│   ├── Timeouts
-│   └── Spam Detection
-│
-├── QueryManager
-│   ├── User Records
-│   ├── Subscribers
-│   ├── Forbidden Phrases
-│   └── Dashboard Credentials
-│
-├── ChatSession
-│   └── User AI Conversations
-│
-├── ContextChat
-│   └── Shared Memory Context
-│
-├── LLM Integration
-│   ├── Prompt Responses
-│   ├── Chat Sessions
-│   └── Moderation
-│
-└── Vision Model
-    ├── OCR
-    ├── Image Understanding
-    └── Visual Question Answering
+.
+├── config
+│   ├── ai.py
+│   ├── models.py
+├── env
+│   ├── keys.py
+├── README.md
+├── requirements.txt
+└── src
+    ├── Bot
+    │   ├── BotMain.py
+    │   ├── InputHandlers.py
+    │   ├── LLM.py
+    │   ├── Moderation.py
+    │   └── Schema.py
+    ├── DB
+    │   ├── Connector.py
+    │   └── QueryManager.py
+    └── Flask
+        ├── app.py
+        └── templates
+            ├── base.html
+            ├── dashboard.html
+            ├── login.html
+            ├── moderation.html
+            └── settings.html
 ```
-
 ---
 
 ## Installation
