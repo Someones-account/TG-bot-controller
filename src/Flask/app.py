@@ -1,18 +1,15 @@
 import requests
-from flask import Flask, render_template, redirect, url_for, request, jsonify, session
+import json
+from datetime import datetime
+from flask import Flask, render_template, redirect, url_for, request, jsonify, Response, session, flash
 import os
 import sys
 from pathlib import Path
 
-# --- THE PATHING FIX ---
-# 1. Find our exact location (src/Flask)
+# Fix pathing issues for imports
 current_dir = Path(__file__).resolve().parent
-# 2. Go up one level to 'src'
 src_dir = current_dir.parent
-# 3. Go up one more level to the Project Root ('TG-bot-controller')
 project_root = src_dir.parent
-
-# Tell Python to look in BOTH folders when searching for imports like 'env' or 'Bot'
 sys.path.append(str(project_root))
 sys.path.append(str(src_dir))
 
@@ -41,7 +38,7 @@ def dashboard():
 
     try:
         # Hit the Telegram API
-        response = requests.get(telegram_url, params={"chat_id": GROUP_CHAT_ID})
+        response = requests.get(telegram_url, params={"chat_id": GROUP_CHAT_ID}, timeout=5)
         data = response.json()
 
         # If Telegram responds successfully, use their real number
@@ -89,14 +86,33 @@ def dashboard():
 
 @app.route('/moderation')
 def moderation():
+    if not session.get('is_authenticated'):
+        return redirect(url_for('login_route'))
     cursor = open_connection()
     qm = QueryManager(cursor)
+    # fetch forbidden phrases list
+    forbidden_phrases = qm.get_all_forbidden_phrases()
 
-    # fetch active bans
-    active_bans = qm.get_banned_users()
-    # fetch moderation history
+    # count metrics for the pie chart
+    cursor.execute("SELECT COUNT(*) as count FROM ModerationActions WHERE action = 'Ban';")
+    ban_count = cursor.fetchone()['count'] or 0
+
+    cursor.execute("SELECT COUNT(*) as count FROM ModerationActions WHERE action LIKE 'Mute%';")
+    mute_count = cursor.fetchone()['count'] or 0
+
+    # fetch active restrictions
+    cursor.execute("SELECT * FROM ModerationActions WHERE lift_time > NOW();")
+    active_restrictions = cursor.fetchall()
+
+    # fetch complete history log
     all_logs = qm.get_all_records()
-    return render_template('moderation.html', active_bans=active_bans, all_logs=all_logs)
+
+    return render_template('moderation.html',
+                           active_restrictions=active_restrictions,
+                           all_logs=all_logs,
+                           forbidden_phrases=forbidden_phrases,
+                           ban_count=ban_count,
+                           mute_count=mute_count)
 
 
 @app.route('/unban/<chat_id>/<int:user_id>', methods=['POST'])
@@ -104,7 +120,10 @@ def unban_user(chat_id, user_id):
     cursor = open_connection()
     qm = QueryManager(cursor)
 
-    # 1. Tell Telegram Servers to physically unban the user
+    # track the explicit action rule for removal
+    action_to_revoke = request.form.get('action', 'Ban')
+
+    # release call to Telegram core API
     telegram_url = f"https://api.telegram.org/bot{keys.API_TOKEN}/unbanChatMember"
     response = requests.get(telegram_url, params={
         "chat_id": chat_id,
@@ -112,52 +131,72 @@ def unban_user(chat_id, user_id):
         "only_if_banned": True
     })
 
-    # 2. If Telegram successfully unbanned them (HTTP 200), update our database
+    # verify target interface update status
     if response.status_code == 200:
-        # We use your team lead's new Soft-Delete function!
-        qm.revoke_action(user_id, "Ban")
+        qm.revoke_action(user_id, action_to_revoke)
+        flash(f"Successfully lifted {action_to_revoke} for User {user_id}!", "success")
     else:
-        print(f"Failed to unban on Telegram: {response.text}")
-
-    # 3. Refresh the page
-    return redirect(url_for('dashboard'))
+        flash(f"Telegram API rejected the request to unban User {user_id}.", "danger")
+    return redirect(url_for('moderation'))
 
 
-@app.route("/api/slow-mode", methods=["POST"])
-def handle_direct_slow_mode():
-    try:
-        data = request.get_json() or {}
-        chat_id = data.get("chat_id")
-        duration = data.get("duration")
-        if chat_id is None or duration is None:
-            return jsonify({"status": "error", "message": "Missing required fields"}), 400
-        try:
-            duration_int = int(duration)
-            chat_id_int = int(chat_id)
-        except ValueError:
-            return jsonify({"status": "error", "message": "Invalid integer format for chat_id or duration"}), 400
+# --- FORBIDDEN PHRASE MANIPULATION ---
+@app.route('/api/forbidden-phrases/add', methods=['POST'])
+def add_phrase():
+    cursor = open_connection()
+    qm = QueryManager(cursor)
+    phrase = request.form.get('phrase')
+    if phrase:
+        qm.add_forbidden_phrase(phrase)
+    return redirect(url_for('moderation'))
 
-        allowed_durations = [0, 10, 30, 60, 300, 900, 3600]
-        if duration_int not in allowed_durations:
-            return jsonify({"status": "error", "message": "Invalid duration value"}), 400
 
-        url = f"https://api.telegram.org/bot{keys.API_TOKEN}/setChatSlowModeDelay"
-        payload = {
-            "chat_id": chat_id_int,
-            "delay_seconds": duration_int
-        }
+@app.route('/api/forbidden-phrases/remove', methods=['POST'])
+def remove_phrase():
+    cursor = open_connection()
+    qm = QueryManager(cursor)
+    phrase = request.form.get('phrase')
+    if phrase:
+        qm.remove_forbidden_phrase(phrase)
+    return redirect(url_for('moderation'))
 
-        response = requests.post(url, json=payload, timeout=10)
-        response_data = response.json()
-        if not response_data.get("ok"):
-            error_msg = response_data.get("description", "Unknown Telegram API error")
-            return jsonify({"status": "error", "message": f"Telegram API error: {error_msg}"}), 400
 
-        message = "Slow mode disabled" if duration_int == 0 else f"Slow mode set to {duration_int}s"
-        return jsonify({"status": "success", "message": message}), 200
-
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+# @app.route("/api/slow-mode", methods=["POST"])
+# def handle_direct_slow_mode():
+#     try:
+#         data = request.get_json() or {}
+#         chat_id = data.get("chat_id")
+#         duration = data.get("duration")
+#         if chat_id is None or duration is None:
+#             return jsonify({"status": "error", "message": "Missing required fields"}), 400
+#         try:
+#             duration_int = int(duration)
+#             chat_id_int = int(chat_id)
+#         except ValueError:
+#             return jsonify({"status": "error", "message": "Invalid integer format for chat_id or duration"}), 400
+#
+#         allowed_durations = [0, 10, 30, 60, 300, 900, 3600]
+#         if duration_int not in allowed_durations:
+#             return jsonify({"status": "error", "message": "Invalid duration value"}), 400
+#
+#         url = f"https://api.telegram.org/bot{keys.API_TOKEN}/setChatSlowModeDelay"
+#         payload = {
+#             "chat_id": chat_id_int,
+#             "slow_mode_delay": duration_int
+#         }
+#
+#         response = requests.post(url, json=payload, timeout=10)
+#         response_data = response.json()
+#         if not response_data.get("ok"):
+#             error_msg = response_data.get("description", "Unknown Telegram API error")
+#             print(f"!!! TELEGRAM REJECTED IT BECAUSE: {error_msg}")  # Look at your terminal!
+#             return jsonify({"status": "error", "message": f"Telegram API error: {error_msg}"}), 400
+#
+#         message = "Slow mode disabled" if duration_int == 0 else f"Slow mode set to {duration_int}s"
+#         return jsonify({"status": "success", "message": message}), 200
+#
+#     except Exception as e:
+#         return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route('/api/broadcast', methods=['POST'])
@@ -252,6 +291,49 @@ def ai_draft():
         return jsonify({"status": "success", "response": response_text}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/export-logs")
+def export_logs():
+    cursor = open_connection()
+    qm = QueryManager(cursor)
+    logs = qm.get_all_records()
+
+    # We must convert MySQL datetime objects to strings so they can be downloaded
+    clean_logs = []
+    for row in logs:
+        clean_row = {}
+        for key, val in row.items():
+            clean_row[key] = str(val) if isinstance(val, datetime) else val
+        clean_logs.append(clean_row)
+
+    # Force the browser to download it as a file instead of displaying it
+    json_data = json.dumps(clean_logs, indent=4)
+    return Response(json_data,
+                    mimetype='application/json',
+                    headers={'Content-Disposition': 'attachment;filename=moderation_logs.json'})
+
+
+@app.route('/settings')
+def settings():
+    # Enforce security: kick out unauthorized guests
+    if not session.get('is_authenticated'):
+        return redirect(url_for('login_route'))
+
+    # Check background statuses dynamically
+    ai_online = is_ollama_running()
+
+    # Check if we can safely talk to our MySQL database
+    try:
+        cursor = open_connection()
+        db_status = "Connected"
+    except Exception:
+        db_status = "Disconnected"
+
+    return render_template('settings.html',
+                           ai_online=ai_online,
+                           db_status=db_status,
+                           bot_username="@ChatStatsBot")
 
 if __name__ == '__main__':
     app.run(debug=True)
