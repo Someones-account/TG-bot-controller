@@ -15,6 +15,7 @@
                         <thead class="table-secondary">
                             <tr>
                                 <th>User ID</th>
+                                <th>Username</th>
                                 <th>Action</th>
                                 <th>Ban Date</th>
                                 <th>Controls</th>
@@ -24,6 +25,13 @@
                             {% for log in active_bans %}
                             <tr>
                                 <td><i class="fa-solid fa-user text-secondary me-2"></i>{{ log.user_id }}</td>
+                                <td>
+                                    {% if log.username %}
+                                        <span class="text-info">@{{ log.username }}</span>
+                                    {% else %}
+                                        <span class="text-muted italic small">unknown</span>
+                                    {% endif %}
+                                </td>
                                 <td><span class="badge bg-danger text-white">{{ log.action }}</span></td>
                                 <td>{{ log.timestamp }}</td>
                                 <td>
@@ -34,7 +42,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="4" class="text-center py-4 text-muted">No active bans found.</td>
+                                <td colspan="5" class="text-center py-4 text-muted">No active bans found.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -56,6 +64,7 @@
                             <tr>
                                 <th>Log ID</th>
                                 <th>User ID</th>
+                                <th>Username</th>
                                 <th>Action</th>
                                 <th>Timestamp</th>
                                 <th>Lift Time (Expiration)</th>
@@ -66,13 +75,20 @@
                             <tr>
                                 <td>{{ log.id }}</td>
                                 <td>{{ log.user_id }}</td>
+                                <td>
+                                    {% if log.username %}
+                                        <span class="text-info">@{{ log.username }}</span>
+                                    {% else %}
+                                        <span class="text-muted small italic">unknown</span>
+                                    {% endif %}
+                                </td>
                                 <td>{{ log.action }}</td>
                                 <td>{{ log.timestamp }}</td>
                                 <td>{{ log.lift_time if log.lift_time else 'Permanent' }}</td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="5" class="text-center py-4">No historical records found.</td>
+                                <td colspan="6" class="text-center py-4">No historical records found.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
