@@ -1,7 +1,17 @@
 import requests
 import json
 from datetime import datetime
-from flask import Flask, render_template, redirect, url_for, request, jsonify, Response, session, flash
+from flask import (
+    Flask,
+    render_template,
+    redirect,
+    url_for,
+    request,
+    jsonify,
+    Response,
+    session,
+    flash,
+)
 import os
 import sys
 from pathlib import Path
@@ -16,8 +26,10 @@ sys.path.append(str(src_dir))
 from src.DB.Connector import open_connection
 from src.DB.QueryManager import QueryManager
 from src.Bot.LLM import ask_llm, is_ollama_running
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from env import keys
+
 app = Flask(__name__)
 try:
     app.secret_key = keys.SECRET_KEY
@@ -25,10 +37,10 @@ except AttributeError:
     app.secret_key = "super-secret-fallback-token-string-change-this-in-production!"
 
 
-@app.route('/')
+@app.route("/")
 def dashboard():
-    if not session.get('is_authenticated'):
-        return redirect(url_for('login_route'))
+    if not session.get("is_authenticated"):
+        return redirect(url_for("login_route"))
 
     cursor = open_connection()
     qm = QueryManager(cursor)
@@ -38,7 +50,9 @@ def dashboard():
 
     try:
         # Hit the Telegram API
-        response = requests.get(telegram_url, params={"chat_id": GROUP_CHAT_ID}, timeout=5)
+        response = requests.get(
+            telegram_url, params={"chat_id": GROUP_CHAT_ID}, timeout=5
+        )
         data = response.json()
 
         # If Telegram responds successfully, use their real number
@@ -60,45 +74,51 @@ def dashboard():
     growth_data_raw = qm.get_subscriber_growth()
 
     # Format 7-Day Trend
-    trend_labels = [str(row['action_date']) for row in trend_data_raw]
-    trend_values = [row['count'] for row in trend_data_raw]
+    trend_labels = [str(row["action_date"]) for row in trend_data_raw]
+    trend_values = [row["count"] for row in trend_data_raw]
 
     # Format Subscriber Growth (Cumulative)
-    growth_labels = [str(row['sub_date']) for row in growth_data_raw]
+    growth_labels = [str(row["sub_date"]) for row in growth_data_raw]
     growth_values = []
     current_total = 0
     for row in growth_data_raw:
-        current_total += row['count']
+        current_total += row["count"]
         growth_values.append(current_total)
 
     # Check if Ollama is running in the background
     ai_status = "Online" if is_ollama_running() else "Offline"
-    return render_template('dashboard.html',
-                           total_users=total_users,
-                           total_subs=total_subs,
-                           recent_actions=recent_actions,
-                           trend_labels=trend_labels,
-                           trend_values=trend_values,
-                           growth_labels=growth_labels,
-                           growth_values=growth_values,
-                           ai_status = ai_status)
+    return render_template(
+        "dashboard.html",
+        total_users=total_users,
+        total_subs=total_subs,
+        recent_actions=recent_actions,
+        trend_labels=trend_labels,
+        trend_values=trend_values,
+        growth_labels=growth_labels,
+        growth_values=growth_values,
+        ai_status=ai_status,
+    )
 
 
-@app.route('/moderation')
+@app.route("/moderation")
 def moderation():
-    if not session.get('is_authenticated'):
-        return redirect(url_for('login_route'))
+    if not session.get("is_authenticated"):
+        return redirect(url_for("login_route"))
     cursor = open_connection()
     qm = QueryManager(cursor)
     # fetch forbidden phrases list
     forbidden_phrases = qm.get_all_forbidden_phrases()
 
     # count metrics for the pie chart
-    cursor.execute("SELECT COUNT(*) as count FROM ModerationActions WHERE action = 'Ban';")
-    ban_count = cursor.fetchone()['count'] or 0
+    cursor.execute(
+        "SELECT COUNT(*) as count FROM ModerationActions WHERE action = 'Ban';"
+    )
+    ban_count = cursor.fetchone()["count"] or 0
 
-    cursor.execute("SELECT COUNT(*) as count FROM ModerationActions WHERE action LIKE 'Mute%';")
-    mute_count = cursor.fetchone()['count'] or 0
+    cursor.execute(
+        "SELECT COUNT(*) as count FROM ModerationActions WHERE action LIKE 'Mute%';"
+    )
+    mute_count = cursor.fetchone()["count"] or 0
 
     # fetch active restrictions
     cursor.execute("SELECT * FROM ModerationActions WHERE lift_time > NOW();")
@@ -107,29 +127,30 @@ def moderation():
     # fetch complete history log
     all_logs = qm.get_all_records()
 
-    return render_template('moderation.html',
-                           active_restrictions=active_restrictions,
-                           all_logs=all_logs,
-                           forbidden_phrases=forbidden_phrases,
-                           ban_count=ban_count,
-                           mute_count=mute_count)
+    return render_template(
+        "moderation.html",
+        active_restrictions=active_restrictions,
+        all_logs=all_logs,
+        forbidden_phrases=forbidden_phrases,
+        ban_count=ban_count,
+        mute_count=mute_count,
+    )
 
 
-@app.route('/unban/<chat_id>/<int:user_id>', methods=['POST'])
+@app.route("/unban/<chat_id>/<int:user_id>", methods=["POST"])
 def unban_user(chat_id, user_id):
     cursor = open_connection()
     qm = QueryManager(cursor)
 
     # track the explicit action rule for removal
-    action_to_revoke = request.form.get('action', 'Ban')
+    action_to_revoke = request.form.get("action", "Ban")
 
     # release call to Telegram core API
     telegram_url = f"https://api.telegram.org/bot{keys.API_TOKEN}/unbanChatMember"
-    response = requests.get(telegram_url, params={
-        "chat_id": chat_id,
-        "user_id": user_id,
-        "only_if_banned": True
-    })
+    response = requests.get(
+        telegram_url,
+        params={"chat_id": chat_id, "user_id": user_id, "only_if_banned": True},
+    )
 
     # verify target interface update status
     if response.status_code == 200:
@@ -137,28 +158,28 @@ def unban_user(chat_id, user_id):
         flash(f"Successfully lifted {action_to_revoke} for User {user_id}!", "success")
     else:
         flash(f"Telegram API rejected the request to unban User {user_id}.", "danger")
-    return redirect(url_for('moderation'))
+    return redirect(url_for("moderation"))
 
 
 # --- FORBIDDEN PHRASE MANIPULATION ---
-@app.route('/api/forbidden-phrases/add', methods=['POST'])
+@app.route("/api/forbidden-phrases/add", methods=["POST"])
 def add_phrase():
     cursor = open_connection()
     qm = QueryManager(cursor)
-    phrase = request.form.get('phrase')
+    phrase = request.form.get("phrase")
     if phrase:
         qm.add_forbidden_phrase(phrase)
-    return redirect(url_for('moderation'))
+    return redirect(url_for("moderation"))
 
 
-@app.route('/api/forbidden-phrases/remove', methods=['POST'])
+@app.route("/api/forbidden-phrases/remove", methods=["POST"])
 def remove_phrase():
     cursor = open_connection()
     qm = QueryManager(cursor)
-    phrase = request.form.get('phrase')
+    phrase = request.form.get("phrase")
     if phrase:
         qm.remove_forbidden_phrase(phrase)
-    return redirect(url_for('moderation'))
+    return redirect(url_for("moderation"))
 
 
 # @app.route("/api/slow-mode", methods=["POST"])
@@ -199,18 +220,18 @@ def remove_phrase():
 #         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-@app.route('/api/broadcast', methods=['POST'])
+@app.route("/api/broadcast", methods=["POST"])
 def send_broadcast():
     cursor = open_connection()
     qm = QueryManager(cursor)
 
     # 1. Get the data from our web form
-    message_text = request.form.get('message')
-    image_url = request.form.get('image_url')
+    message_text = request.form.get("message")
+    image_url = request.form.get("image_url")
 
     # In HTML forms, checkboxes send 'on' if checked, and None if unchecked
-    send_to_subs = request.form.get('send_subs') == 'on'
-    send_to_group = request.form.get('send_group') == 'on'
+    send_to_subs = request.form.get("send_subs") == "on"
+    send_to_group = request.form.get("send_group") == "on"
 
     GROUP_CHAT_ID = "-1003713767184"
     formatted_message = f"**📣 Admin Announcement:**\n\n{message_text}"
@@ -220,11 +241,20 @@ def send_broadcast():
         if image_url:
             # Send as an image with text attached as a caption
             url = f"https://api.telegram.org/bot{keys.API_TOKEN}/sendPhoto"
-            payload = {"chat_id": target_id, "photo": image_url, "caption": formatted_message, "parse_mode": "Markdown"}
+            payload = {
+                "chat_id": target_id,
+                "photo": image_url,
+                "caption": formatted_message,
+                "parse_mode": "Markdown",
+            }
         else:
             # Send as standard text
             url = f"https://api.telegram.org/bot{keys.API_TOKEN}/sendMessage"
-            payload = {"chat_id": target_id, "text": formatted_message, "parse_mode": "Markdown"}
+            payload = {
+                "chat_id": target_id,
+                "text": formatted_message,
+                "parse_mode": "Markdown",
+            }
 
         requests.post(url, json=payload)
 
@@ -238,33 +268,36 @@ def send_broadcast():
             send_telegram_msg(sub_id)
 
     # 4. Refresh the dashboard page instantly
-    return redirect(url_for('dashboard'))
+    return redirect(url_for("dashboard"))
 
-@app.route('/login', methods=['GET', 'POST'])
+
+@app.route("/login", methods=["GET", "POST"])
 def login_route():
-    if request.method == 'POST':
-        user_id = request.form.get('user_id')
-        chat_id = request.form.get('chat_id')
-        password = request.form.get('password')
+    if request.method == "POST":
+        user_id = request.form.get("user_id")
+        chat_id = request.form.get("chat_id")
+        password = request.form.get("password")
 
         cursor = open_connection()
         qm = QueryManager(cursor)
 
         if qm.verify_admin_login(user_id, chat_id, password):
-            session['is_authenticated'] = True
-            session['active_user_id'] = user_id
-            session['active_chat_id'] = chat_id
-            return redirect(url_for('dashboard'))
+            session["is_authenticated"] = True
+            session["active_user_id"] = user_id
+            session["active_chat_id"] = chat_id
+            return redirect(url_for("dashboard"))
         else:
-            return render_template('login.html', error="Invalid login parameters supplied.")
+            return render_template(
+                "login.html", error="Invalid login parameters supplied."
+            )
 
-    return render_template('login.html', error=None)
+    return render_template("login.html", error=None)
 
 
-@app.route('/logout')
+@app.route("/logout")
 def logout_route():
     session.clear()
-    return redirect(url_for('login_route'))
+    return redirect(url_for("login_route"))
 
 
 @app.route("/api/ai-draft", methods=["POST"])
@@ -309,16 +342,18 @@ def export_logs():
 
     # Force the browser to download it as a file instead of displaying it
     json_data = json.dumps(clean_logs, indent=4)
-    return Response(json_data,
-                    mimetype='application/json',
-                    headers={'Content-Disposition': 'attachment;filename=moderation_logs.json'})
+    return Response(
+        json_data,
+        mimetype="application/json",
+        headers={"Content-Disposition": "attachment;filename=moderation_logs.json"},
+    )
 
 
-@app.route('/settings')
+@app.route("/settings")
 def settings():
     # Enforce security: kick out unauthorized guests
-    if not session.get('is_authenticated'):
-        return redirect(url_for('login_route'))
+    if not session.get("is_authenticated"):
+        return redirect(url_for("login_route"))
 
     # Check background statuses dynamically
     ai_online = is_ollama_running()
@@ -330,10 +365,13 @@ def settings():
     except Exception:
         db_status = "Disconnected"
 
-    return render_template('settings.html',
-                           ai_online=ai_online,
-                           db_status=db_status,
-                           bot_username="@ChatStatsBot")
+    return render_template(
+        "settings.html",
+        ai_online=ai_online,
+        db_status=db_status,
+        bot_username="@ChatStatsBot",
+    )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app.run(debug=True)

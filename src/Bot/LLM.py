@@ -15,6 +15,7 @@ DEFAULT_VISION_MODEL = models.DEFAULT_VISION_MODEL
 CONTEXT_CHAT_INSTRUCTION = ai.CONTEXT_CHAT_INSTRUCTION
 CONTEXT_CHAT_KEY = ai.CONTEXT_CHAT_KEY
 
+
 def is_ollama_running():
     try:
         response = requests.get(OLLAMA_API_URL, timeout=2)
@@ -22,21 +23,20 @@ def is_ollama_running():
     except (requests.ConnectionError, requests.Timeout):
         return False
 
+
 def start_ollama():
     print("Ollama is not running. Starting Ollama server...")
     try:
         subprocess.Popen(
-            ["ollama", "serve"], 
-            stdout=subprocess.DEVNULL, 
-            stderr=subprocess.DEVNULL
+            ["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
-        
+
         for _ in range(15):
             time.sleep(1)
             if is_ollama_running():
                 print("Ollama server started successfully.")
                 return True
-                
+
         print("Error: Timeout waiting for Ollama to start.")
         return False
     except FileNotFoundError:
@@ -46,23 +46,23 @@ def start_ollama():
         print(f"Error starting Ollama: {e}")
         return False
 
+
 def get_local_model_names():
     try:
         response = requests.get(f"{OLLAMA_API_URL}/api/tags", timeout=5)
         response.raise_for_status()
-        models = response.json().get('models', [])
-        return [model['name'] for model in models]
+        models = response.json().get("models", [])
+        return [model["name"] for model in models]
     except Exception as e:
         print(f"Error fetching local models: {e}")
         return []
+
 
 def pull_model(model_name):
     print(f"Downloading model '{model_name}'. This may take a few minutes...")
     try:
         result = subprocess.run(
-            ["ollama", "pull", model_name], 
-            capture_output=True, 
-            text=True
+            ["ollama", "pull", model_name], capture_output=True, text=True
         )
         if result.returncode == 0:
             print(f"Successfully downloaded {model_name}.")
@@ -74,6 +74,7 @@ def pull_model(model_name):
         print(f"Exception occurred while pulling model: {e}")
         return False
 
+
 def init_ollama_models(models):
     if not is_ollama_running():
         if not start_ollama():
@@ -82,7 +83,9 @@ def init_ollama_models(models):
         print("Ollama is already running.")
 
     local_models = get_local_model_names()
-    print(f"Models currently available locally: {local_models if local_models else 'None'}")
+    print(
+        f"Models currently available locally: {local_models if local_models else 'None'}"
+    )
     print(f"Models expected to initialize: {models}")
     for model in models:
         if model in set(local_models):
@@ -97,11 +100,10 @@ def init_ollama_models(models):
 
         print(f"Loading model '{model}' into memory...")
         try:
-            preload_payload = {
-                "model": model,
-                "keep_alive": "10m"
-            }
-            requests.post(f"{OLLAMA_API_URL}/api/generate", json=preload_payload, timeout=3)
+            preload_payload = {"model": model, "keep_alive": "10m"}
+            requests.post(
+                f"{OLLAMA_API_URL}/api/generate", json=preload_payload, timeout=3
+            )
         except requests.Timeout:
             pass
         except Exception as e:
@@ -110,15 +112,20 @@ def init_ollama_models(models):
         print(f"Model '{model}' is ready.")
     return True
 
+
 def launch_local_llm():
-    models = [DEFAULT_VISION_MODEL,DEFAULT_LLM]
-    success =  init_ollama_models(models)
+    models = [DEFAULT_VISION_MODEL, DEFAULT_LLM]
+    success = init_ollama_models(models)
     if success:
         print(f"SUCCESS: Models '{models}' has been passed to the main application.")
     else:
-        print("CRITICAL: Pipeline failed. Could not initialize Ollama or prepare a model.")
+        print(
+            "CRITICAL: Pipeline failed. Could not initialize Ollama or prepare a model."
+        )
 
-#launch_local_llm()
+
+# launch_local_llm()
+
 
 def run_model(model_name):
     process = subprocess.Popen(
@@ -126,9 +133,10 @@ def run_model(model_name):
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True
+        text=True,
     )
     return process
+
 
 def ask_llm(s):
     if not is_ollama_running():
@@ -137,14 +145,11 @@ def ask_llm(s):
 
     print("LLM ASKED", flush=True)
     if DEFAULT_LLM:
-        response = generate(
-            model=DEFAULT_LLM,
-            prompt=s,
-            stream = False
-        )
+        response = generate(model=DEFAULT_LLM, prompt=s, stream=False)
         return response.response
     else:
         return None
+
 
 def ask_vision_model(s, images):
     if not is_ollama_running():
@@ -153,15 +158,10 @@ def ask_vision_model(s, images):
 
     response = ollama.chat(
         model=DEFAULT_VISION_MODEL,
-        messages=[
-            {
-                'role': 'user',
-                'content': s,
-                'images': images
-            }
-        ]
+        messages=[{"role": "user", "content": s, "images": images}],
     )
-    return(response['message']['content'])
+    return response["message"]["content"]
+
 
 class ChatSession:
     def __init__(self, model=DEFAULT_LLM):
@@ -174,14 +174,14 @@ class ChatSession:
                 return "Error: Cannot run Ollama"
 
         if DEFAULT_LLM:
-            self.messages.append({'role': 'user', 'content': user_input})
+            self.messages.append({"role": "user", "content": user_input})
             stream = ollama.chat(
                 model=self.model,
                 messages=self.messages,
                 stream=False,
             )
-            response = stream['message']['content']
-            self.messages.append({'role': 'assistant', 'content': response})
+            response = stream["message"]["content"]
+            self.messages.append({"role": "assistant", "content": response})
 
             return response
         else:
@@ -190,13 +190,13 @@ class ChatSession:
 
 class ContextChat:
     def __init__(self, model=DEFAULT_LLM):
-        self.messages = [
-                {'role':'user', 'content': ai.CONTEXT_CHAT_INSTRUCTION}
-                ]
+        self.messages = [{"role": "user", "content": ai.CONTEXT_CHAT_INSTRUCTION}]
         self.model = model
-    
+
     def record(self, user_id, user_input):
-        self.messages.append({'role':'user', 'content':f"From {user_id}: {user_input}"})
+        self.messages.append(
+            {"role": "user", "content": f"From {user_id}: {user_input}"}
+        )
 
     def ask(self, user_input):
         if not is_ollama_running():
@@ -204,15 +204,16 @@ class ContextChat:
                 return "Error: Cannot run Ollama"
 
         if DEFAULT_LLM:
-            self.messages.append({'role': 'user', 'content': ai.CONTEXT_CHAT_KEY+" "+user_input})
+            self.messages.append(
+                {"role": "user", "content": ai.CONTEXT_CHAT_KEY + " " + user_input}
+            )
             stream = ollama.chat(
                 model=self.model,
                 messages=self.messages,
                 stream=False,
             )
-            response = stream['message']['content']
+            response = stream["message"]["content"]
 
             return response
         else:
             return None
-

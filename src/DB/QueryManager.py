@@ -7,12 +7,13 @@ class QueryManager:
     def __init__(self, cursor):
         self.cursor = cursor
 
-
     def create_entry(self, user_id, action, lift_time, chat_id):
         self.__ensure_connection()
         try:
             query = "INSERT INTO ModerationActions (user_id, action, timestamp, lift_time, chat_id) VALUES (%s, %s, %s, %s, %s);"
-            self.cursor.execute(query, (user_id, action, datetime.now(), lift_time, chat_id))
+            self.cursor.execute(
+                query, (user_id, action, datetime.now(), lift_time, chat_id)
+            )
             self.cursor.connection.commit()
 
         except:
@@ -64,7 +65,6 @@ class QueryManager:
             print(f"Query failed! Error: {e}")
             return []
 
-
     def format_records(self, records):
         self.__ensure_connection()
         result = ""
@@ -72,13 +72,14 @@ class QueryManager:
             for record in records:
                 readable_date = record["timestamp"].strftime("%Y-%m-%d %H:%M:%S")
                 if record["lift_time"]:
-                    readable_lift_date = record["lift_time"].strftime("%Y-%m-%d %H:%M:%S")
+                    readable_lift_date = record["lift_time"].strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
                 else:
                     readable_lift_date = "empty"
                 result += f"{record['id']} || {record['action']} || {readable_date} || {readable_lift_date} \n"
 
         return result
-
 
     def log_user(self, user):
         self.__ensure_connection()
@@ -91,9 +92,10 @@ class QueryManager:
         VALUES (%s, %s, %s)
         ON DUPLICATE KEY UPDATE username = %s, first_name = %s;
         """
-        self.cursor.execute(query, (user.id, username, first_name, username, first_name))
+        self.cursor.execute(
+            query, (user.id, username, first_name, username, first_name)
+        )
         self.cursor.connection.commit()
-
 
     def revoke_action(self, user_id, action):
         self.__ensure_connection()
@@ -103,7 +105,9 @@ class QueryManager:
                 WHERE user_id = %s AND action = %s AND (lift_time > %s);
                 """
 
-        self.cursor.execute(update_query, (datetime.now(), user_id, action, datetime.now()))
+        self.cursor.execute(
+            update_query, (datetime.now(), user_id, action, datetime.now())
+        )
         self.cursor.connection.commit()
 
     def is_user_banned(self, user_id, chat_id):
@@ -124,7 +128,9 @@ class QueryManager:
     def subscribe_user(self, user_id, chat_id):
         self.__ensure_connection()
         try:
-            query = "INSERT IGNORE INTO Subscriptions (user_id, chat_id) VALUES (%s, %s);"
+            query = (
+                "INSERT IGNORE INTO Subscriptions (user_id, chat_id) VALUES (%s, %s);"
+            )
             self.cursor.execute(query, (user_id, chat_id))
             self.cursor.connection.commit()
             return True
@@ -150,7 +156,7 @@ class QueryManager:
         try:
             query = "SELECT user_id FROM Subscriptions WHERE chat_id = %s;"
             self.cursor.execute(query, (chat_id,))
-            return [row['user_id'] for row in self.cursor.fetchall()]
+            return [row["user_id"] for row in self.cursor.fetchall()]
         except Exception as e:
             print(f"Failed to fetch subscribers: {e}")
             return []
@@ -185,11 +191,10 @@ class QueryManager:
             query = "SELECT phrase FROM ForbiddenPhrases;"
             self.cursor.execute(query)
             rows = self.cursor.fetchall()
-            return [row['phrase'] for row in rows]
+            return [row["phrase"] for row in rows]
         except Exception as e:
             print(f"Failed to fetch phrases: {e}")
             return []
-
 
     def __ensure_connection(self):
         try:
@@ -198,25 +203,27 @@ class QueryManager:
         except (pymysql.MySQLError, AttributeError):
             print("Database connection lost!")
 
-
     def get_total_users(self):
         self.__ensure_connection()
         self.cursor.execute("SELECT COUNT(*) as count FROM Users;")
         res = self.cursor.fetchone()
-        return res['count'] if res else 0
+        return res["count"] if res else 0
 
     def get_total_subscribers(self):
         self.__ensure_connection()
-        self.cursor.execute("SELECT COUNT(DISTINCT user_id) as count FROM Subscriptions;")
+        self.cursor.execute(
+            "SELECT COUNT(DISTINCT user_id) as count FROM Subscriptions;"
+        )
         res = self.cursor.fetchone()
-        return res['count'] if res else 0
+        return res["count"] if res else 0
 
     def get_recent_actions_count(self):
         self.__ensure_connection()
         self.cursor.execute(
-            "SELECT COUNT(*) as count FROM ModerationActions WHERE timestamp >= NOW() - INTERVAL 1 DAY;")
+            "SELECT COUNT(*) as count FROM ModerationActions WHERE timestamp >= NOW() - INTERVAL 1 DAY;"
+        )
         res = self.cursor.fetchone()
-        return res['count'] if res else 0
+        return res["count"] if res else 0
 
     def get_moderation_trend(self):
         self.__ensure_connection()
@@ -249,7 +256,11 @@ class QueryManager:
             check_query = "SELECT web_password FROM GroupAdmins WHERE user_id = %s AND chat_id = %s;"
             self.cursor.execute(check_query, (user_id, chat_id))
             result = self.cursor.fetchone()
-            existing_pwd = result['web_password'] if isinstance(result, dict) else (result[0] if result else None)
+            existing_pwd = (
+                result["web_password"]
+                if isinstance(result, dict)
+                else (result[0] if result else None)
+            )
             if existing_pwd:
                 return existing_pwd
 
@@ -260,7 +271,10 @@ class QueryManager:
             VALUES (%s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE username = %s, web_password = %s;
             """
-            self.cursor.execute(upsert_query, (user_id, chat_id, username, new_password, username, new_password))
+            self.cursor.execute(
+                upsert_query,
+                (user_id, chat_id, username, new_password, username, new_password),
+            )
             self.cursor.connection.commit()
             return new_password
         except Exception as e:

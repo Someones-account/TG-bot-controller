@@ -6,7 +6,7 @@ connection = pymysql.connect(
     charset="utf8mb4",
     connect_timeout=timeout,
     cursorclass=pymysql.cursors.DictCursor,
-    database="defaultdb", # was defaultdb
+    database="defaultdb",  # was defaultdb
     host="telegram-user-db-telegramuserdb.i.aivencloud.com",
     password=PASSWORD,
     read_timeout=timeout,
@@ -15,6 +15,7 @@ connection = pymysql.connect(
     write_timeout=timeout,
 )
 
+
 def open_connection():
     try:
         cursor = connection.cursor()
@@ -22,6 +23,6 @@ def open_connection():
     except:
         print("Connection to the database failed")
         return None
-    #finally:
-        #connection.commit()
-        #connection.close()
+    # finally:
+    # connection.commit()
+    # connection.close()
