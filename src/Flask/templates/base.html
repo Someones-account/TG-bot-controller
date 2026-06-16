@@ -37,9 +37,9 @@
                     </a>
                         </li>
                     <li class="nav-item w-100 mt-2">
-                        <a href="#" class="nav-link px-0 align-middle">
-                            <i class="fs-5 fa-solid fa-gear ms-2"></i> <span class="ms-2 d-none d-sm-inline">Settings</span>
-                        </a>
+                        <a href="{{ url_for('settings') }}" class="nav-link px-0 align-middle {% if request.endpoint == 'settings' %}active{% endif %}">
+                         <i class="fs-5 fa-solid fa-gear ms-2"></i> <span class="ms-2 d-none d-sm-inline">Settings</span>
+                    </a>
                     </li>
                 </ul>
             </div>
