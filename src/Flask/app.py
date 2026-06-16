@@ -4,9 +4,6 @@ import os
 import sys
 from pathlib import Path
 
-from src.DB.Connector import open_connection
-from src.DB.QueryManager import QueryManager
-
 # --- THE PATHING FIX ---
 # 1. Find our exact location (src/Flask)
 current_dir = Path(__file__).resolve().parent
@@ -20,6 +17,8 @@ sys.path.append(str(project_root))
 sys.path.append(str(src_dir))
 # ------------------------
 
+from src.DB.Connector import open_connection
+from src.Bot.QueryManager import QueryManager
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from env import keys
 app = Flask(__name__)
@@ -130,6 +129,47 @@ def handle_direct_slow_mode():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
+@app.route('/api/broadcast', methods=['POST'])
+def send_broadcast():
+    cursor = open_connection()
+    qm = QueryManager(cursor)
+
+    # 1. Get the data from our web form
+    message_text = request.form.get('message')
+    image_url = request.form.get('image_url')
+
+    # In HTML forms, checkboxes send 'on' if checked, and None if unchecked
+    send_to_subs = request.form.get('send_subs') == 'on'
+    send_to_group = request.form.get('send_group') == 'on'
+
+    GROUP_CHAT_ID = "-1003713767184"
+    formatted_message = f"**📣 Admin Announcement:**\n\n{message_text}"
+
+    # 2. Helper function to send the message to a specific ID
+    def send_telegram_msg(target_id):
+        if image_url:
+            # Send as an image with text attached as a caption
+            url = f"https://api.telegram.org/bot{keys.API_TOKEN}/sendPhoto"
+            payload = {"chat_id": target_id, "photo": image_url, "caption": formatted_message, "parse_mode": "Markdown"}
+        else:
+            # Send as standard text
+            url = f"https://api.telegram.org/bot{keys.API_TOKEN}/sendMessage"
+            payload = {"chat_id": target_id, "text": formatted_message, "parse_mode": "Markdown"}
+
+        requests.post(url, json=payload)
+
+    # 3. Execute based on checkboxes!
+    if send_to_group:
+        send_telegram_msg(GROUP_CHAT_ID)
+
+    if send_to_subs:
+        subs = qm.get_subscribers(GROUP_CHAT_ID)
+        for sub_id in subs:
+            send_telegram_msg(sub_id)
+
+    # 4. Refresh the dashboard page instantly
+    return redirect(url_for('dashboard'))
 
 if __name__ == '__main__':
     app.run(debug=True)
