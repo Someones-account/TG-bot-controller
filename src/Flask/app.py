@@ -6,15 +6,10 @@ import os
 import sys
 from pathlib import Path
 
-# --- THE PATHING FIX ---
-# 1. Find our exact location (src/Flask)
+# Fix pathing issues for imports
 current_dir = Path(__file__).resolve().parent
-# 2. Go up one level to 'src'
 src_dir = current_dir.parent
-# 3. Go up one more level to the Project Root ('TG-bot-controller')
 project_root = src_dir.parent
-
-# Tell Python to look in BOTH folders when searching for imports like 'env' or 'Bot'
 sys.path.append(str(project_root))
 sys.path.append(str(src_dir))
 
