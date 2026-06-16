@@ -1,5 +1,7 @@
 import requests
-from flask import Flask, render_template, redirect, url_for, request, jsonify
+import json
+from datetime import datetime
+from flask import Flask, render_template, redirect, url_for, request, jsonify, Response
 import os
 import sys
 from pathlib import Path
@@ -34,7 +36,7 @@ def dashboard():
 
     try:
         # Hit the Telegram API
-        response = requests.get(telegram_url, params={"chat_id": GROUP_CHAT_ID})
+        response = requests.get(telegram_url, params={"chat_id": GROUP_CHAT_ID}) #add timeout = 5
         data = response.json()
 
         # If Telegram responds successfully, use their real number
@@ -116,41 +118,42 @@ def unban_user(chat_id, user_id):
     return redirect(url_for('dashboard'))
 
 
-@app.route("/api/slow-mode", methods=["POST"])
-def handle_direct_slow_mode():
-    try:
-        data = request.get_json() or {}
-        chat_id = data.get("chat_id")
-        duration = data.get("duration")
-        if chat_id is None or duration is None:
-            return jsonify({"status": "error", "message": "Missing required fields"}), 400
-        try:
-            duration_int = int(duration)
-            chat_id_int = int(chat_id)
-        except ValueError:
-            return jsonify({"status": "error", "message": "Invalid integer format for chat_id or duration"}), 400
-
-        allowed_durations = [0, 10, 30, 60, 300, 900, 3600]
-        if duration_int not in allowed_durations:
-            return jsonify({"status": "error", "message": "Invalid duration value"}), 400
-
-        url = f"https://api.telegram.org/bot{keys.API_TOKEN}/setChatSlowModeDelay"
-        payload = {
-            "chat_id": chat_id_int,
-            "delay_seconds": duration_int
-        }
-
-        response = requests.post(url, json=payload, timeout=10)
-        response_data = response.json()
-        if not response_data.get("ok"):
-            error_msg = response_data.get("description", "Unknown Telegram API error")
-            return jsonify({"status": "error", "message": f"Telegram API error: {error_msg}"}), 400
-
-        message = "Slow mode disabled" if duration_int == 0 else f"Slow mode set to {duration_int}s"
-        return jsonify({"status": "success", "message": message}), 200
-
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+# @app.route("/api/slow-mode", methods=["POST"])
+# def handle_direct_slow_mode():
+#     try:
+#         data = request.get_json() or {}
+#         chat_id = data.get("chat_id")
+#         duration = data.get("duration")
+#         if chat_id is None or duration is None:
+#             return jsonify({"status": "error", "message": "Missing required fields"}), 400
+#         try:
+#             duration_int = int(duration)
+#             chat_id_int = int(chat_id)
+#         except ValueError:
+#             return jsonify({"status": "error", "message": "Invalid integer format for chat_id or duration"}), 400
+#
+#         allowed_durations = [0, 10, 30, 60, 300, 900, 3600]
+#         if duration_int not in allowed_durations:
+#             return jsonify({"status": "error", "message": "Invalid duration value"}), 400
+#
+#         url = f"https://api.telegram.org/bot{keys.API_TOKEN}/setChatSlowModeDelay"
+#         payload = {
+#             "chat_id": chat_id_int,
+#             "slow_mode_delay": duration_int
+#         }
+#
+#         response = requests.post(url, json=payload, timeout=10)
+#         response_data = response.json()
+#         if not response_data.get("ok"):
+#             error_msg = response_data.get("description", "Unknown Telegram API error")
+#             print(f"!!! TELEGRAM REJECTED IT BECAUSE: {error_msg}")  # Look at your terminal!
+#             return jsonify({"status": "error", "message": f"Telegram API error: {error_msg}"}), 400
+#
+#         message = "Slow mode disabled" if duration_int == 0 else f"Slow mode set to {duration_int}s"
+#         return jsonify({"status": "success", "message": message}), 200
+#
+#     except Exception as e:
+#         return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route('/api/broadcast', methods=['POST'])
@@ -219,6 +222,27 @@ def ai_draft():
         return jsonify({"status": "success", "response": response_text}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/export-logs")
+def export_logs():
+    cursor = open_connection()
+    qm = QueryManager(cursor)
+    logs = qm.get_all_records()
+
+    # We must convert MySQL datetime objects to strings so they can be downloaded
+    clean_logs = []
+    for row in logs:
+        clean_row = {}
+        for key, val in row.items():
+            clean_row[key] = str(val) if isinstance(val, datetime) else val
+        clean_logs.append(clean_row)
+
+    # Force the browser to download it as a file instead of displaying it
+    json_data = json.dumps(clean_logs, indent=4)
+    return Response(json_data,
+                    mimetype='application/json',
+                    headers={'Content-Disposition': 'attachment;filename=moderation_logs.json'})
 
 if __name__ == '__main__':
     app.run(debug=True)

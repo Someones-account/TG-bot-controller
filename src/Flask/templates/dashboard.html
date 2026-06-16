@@ -147,6 +147,26 @@
                 </div>
             </div>
         </div>
+    <div class="col-md-6 mb-4">
+            <div class="card shadow border-0 bg-dark-subtle h-100">
+                <div class="card-header border-bottom border-secondary pt-3">
+                    <h5 class="card-title text-white mb-0"><i class="fa-solid fa-server me-2 text-warning"></i>System Configuration</h5>
+                </div>
+                <div class="card-body d-flex flex-column">
+
+                    <hr class="border-secondary my-2">
+
+                    <div class="mt-auto pt-3">
+                        <label class="form-label text-white-50 small fw-bold">DATABASE MANAGEMENT</label>
+                        <p class="text-muted small mb-2">Download a complete backup of all moderation actions.</p>
+                        <a href="{{ url_for('export_logs') }}" class="btn btn-outline-primary w-100 fw-bold">
+                            <i class="fa-solid fa-download me-2"></i>Export Logs to JSON
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+        </div>
 
     </div>
 </div>
