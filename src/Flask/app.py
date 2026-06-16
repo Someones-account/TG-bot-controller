@@ -17,8 +17,8 @@ sys.path.append(str(project_root))
 sys.path.append(str(src_dir))
 
 from src.DB.Connector import open_connection
-from src.Bot.QueryManager import QueryManager
-from src.DB.LLM import ask_llm, is_ollama_running
+from src.DB.QueryManager import QueryManager
+from src.Bot.LLM import ask_llm, is_ollama_running
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from env import keys
 app = Flask(__name__)

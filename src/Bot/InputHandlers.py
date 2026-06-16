@@ -6,9 +6,9 @@ from telegram.ext import ContextTypes
 
 from src.DB.Connector import open_connection
 from src.Bot.Moderation import Moderation
-from src.Bot.QueryManager import QueryManager
+from src.DB.QueryManager import QueryManager
 
-from src.DB.LLM import *
+from src.Bot.LLM import *
 from config import ai 
 
 import tempfile
@@ -35,11 +35,13 @@ class InputHandlers:
         cmd_list = ["/start - Start the bot",
                     "/help - Show this menu",
                     "/ban - Ban user (you should reply to user's message)",
+                    "/unmute - Unmute user (you should reply to user's message)",
+                    "/subscribe - Agree to receive news in your private messages",
+                    "/unsubscribe - Remove your subscription",
                     "/ai - Prompt LLM",
                     "/chat - Start/Continue LLM Chat session",
-                    "/context_chat - Prompt LLM with context (It remebers chat history)",
-                    "/vision - Prompt LLM about the image. By default(without any parameters provided, just writes text from image) ",
-        
+                    "/context_chat - Prompt LLM with context (It remembers chat history)",
+                    "/vision - Prompt LLM about the image. By default(without any parameters provided, just writes text from image)",
                     ]
         await update.message.reply_text("Available commands:\n"+"\n".join(cmd_list))
 
