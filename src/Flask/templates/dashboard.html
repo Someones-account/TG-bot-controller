@@ -113,6 +113,45 @@
                 </div>
             </div>
         </div>
+        <div class="col-md-6 mb-4">
+            <div class="card shadow border-0 bg-dark-subtle h-100">
+                <div class="card-header border-bottom border-secondary pt-3 d-flex justify-content-between align-items-center">
+                    <h5 class="card-title text-white mb-0"><i class="fa-solid fa-pen-nib me-2 text-info"></i>Smart Broadcast Drafter</h5>
+                    <span class="badge {% if ai_status == 'Online' %}bg-success{% else %}bg-danger{% endif %} border border-secondary shadow-sm">
+                        AI Engine: {{ ai_status }}
+                    </span>
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <label class="form-label text-white-50 small fw-bold">ROUGH IDEA / THOUGHTS</label>
+                    <textarea id="drafterInput" class="form-control bg-dark text-white border-secondary mb-3" rows="2" placeholder="e.g., server down 2 hours for updates sry"></textarea>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="draftMode" id="modeCasual" value="Casual" autocomplete="off">
+                            <label class="btn btn-outline-info btn-sm fw-bold px-3" for="modeCasual">Casual</label>
+
+                            <input type="radio" class="btn-check" name="draftMode" id="modeFormal" value="Formal" autocomplete="off" checked>
+                            <label class="btn btn-outline-info btn-sm fw-bold px-3" for="modeFormal">Formal</label>
+
+                            <input type="radio" class="btn-check" name="draftMode" id="modeShort" value="Short" autocomplete="off">
+                            <label class="btn btn-outline-info btn-sm fw-bold px-3" for="modeShort">Short</label>
+                        </div>
+
+                        <button class="btn btn-info btn-sm fw-bold" onclick="generateDraft()">
+                            <i class="fa-solid fa-wand-magic-sparkles text-dark me-1"></i>Draft Message
+                        </button>
+                    </div>
+
+                    <div id="drafterOutputBox" class="bg-dark rounded p-3 mb-3 border border-secondary shadow-inner flex-grow-1" style="min-height: 100px; display: none;">
+                        <p id="drafterResultText" class="text-white small mb-0"></p>
+                    </div>
+
+                    <button id="copyToBroadcastBtn" class="btn btn-outline-success w-100 fw-bold mt-auto" style="display: none;" onclick="copyToBroadcast()">
+                        <i class="fa-solid fa-arrow-up-right-from-square me-2"></i>Copy to Broadcast Center
+                    </button>
+                </div>
+            </div>
+        </div>
 
     </div>
 </div>
@@ -166,6 +205,57 @@
             }]
         },
         options: { plugins: { legend: { display: false } }, scales: commonScales }
-    });
+    })
+    // --- SMART BROADCAST DRAFTER ---
+    function generateDraft() {
+        const inputField = document.getElementById('drafterInput');
+        const outputBox = document.getElementById('drafterOutputBox');
+        const resultText = document.getElementById('drafterResultText');
+        const copyBtn = document.getElementById('copyToBroadcastBtn');
+        const mode = document.querySelector('input[name="draftMode"]:checked').value;
+        const prompt = inputField.value.trim();
+
+        if (!prompt) return;
+
+        outputBox.style.display = 'block';
+        copyBtn.style.display = 'none';
+        resultText.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-info me-2"></i>Generating draft...';
+
+        fetch('/api/ai-draft', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: prompt, mode: mode })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Show text with proper line breaks
+                resultText.innerHTML = data.response.replace(/\n/g, '<br>');
+                // Save raw text secretly for the Copy button
+                resultText.dataset.plainText = data.response;
+                copyBtn.style.display = 'block';
+            } else {
+                resultText.innerHTML = `<span class="text-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i>Error: ${data.message}</span>`;
+            }
+        })
+        .catch(err => {
+            resultText.innerHTML = `<span class="text-danger">Network Error</span>`;
+        });
+    }
+
+    // This transfers the AI text directly into the Broadcast Box above it!
+    function copyToBroadcast() {
+        const resultText = document.getElementById('drafterResultText').dataset.plainText;
+        const broadcastTextArea = document.querySelector('textarea[name="message"]');
+
+        if (resultText && broadcastTextArea) {
+            broadcastTextArea.value = resultText;
+
+            // Give the broadcast box a quick green flash so the user knows it worked
+            broadcastTextArea.style.transition = "background-color 0.3s";
+            broadcastTextArea.style.backgroundColor = "#198754"; // Bootstrap Success Green
+            setTimeout(() => { broadcastTextArea.style.backgroundColor = ""; }, 400);
+        }
+    }
 </script>
 {% endblock %}
